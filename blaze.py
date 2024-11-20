@@ -1,18 +1,27 @@
 import sqlite3
 
+
 class Field:
     """Defines a database field with a name and type."""
     def __init__(self, field_type):
         self.field_type = field_type
         self.name = None  # Will be set by Model metaclass
 
+
 class IntegerField(Field):
     def __init__(self):
         super().__init__("INTEGER")
 
+
+class FloatField(Field):
+    def __init__(self):
+        super().__init__("FLOAT")
+
+
 class StringField(Field):
     def __init__(self, max_length=255):
         super().__init__(f"TEXT({max_length})")
+
 
 class ModelMeta(type):
     """Metaclass for Model to handle table and field mappings."""
@@ -33,6 +42,7 @@ class ModelMeta(type):
         attrs['_fields'] = fields
 
         return super().__new__(cls, name, bases, attrs)
+
 
 class Model(metaclass=ModelMeta):
     """Base model class that includes CRUD operations."""
