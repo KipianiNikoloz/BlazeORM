@@ -14,6 +14,7 @@ from .core.fields import (
     IntegerField,
     StringField,
 )  # noqa: F401
+from .query import Q, QuerySet  # noqa: F401
 
 __all__ = [
     "Model",
@@ -24,4 +25,6 @@ __all__ = [
     "IntegerField",
     "StringField",
     "ModelConfigurationError",
+    "QuerySet",
+    "Q",
 ]
