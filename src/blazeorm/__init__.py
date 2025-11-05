@@ -14,6 +14,7 @@ from .core.fields import (
     IntegerField,
     StringField,
 )  # noqa: F401
+from .persistence import Session  # noqa: F401
 from .query import Q, QuerySet  # noqa: F401
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "IntegerField",
     "StringField",
     "ModelConfigurationError",
+    "Session",
     "QuerySet",
     "Q",
 ]
