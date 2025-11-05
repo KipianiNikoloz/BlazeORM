@@ -1,0 +1,27 @@
+"""
+BlazeORM public package initialization.
+
+This module exposes the primary public APIs while deferring heavy imports
+to maintain quick startup time.
+"""
+
+from .core.model import Model, ModelConfigurationError  # noqa: F401
+from .core.fields import (
+    AutoField,
+    BooleanField,
+    DateTimeField,
+    FloatField,
+    IntegerField,
+    StringField,
+)  # noqa: F401
+
+__all__ = [
+    "Model",
+    "AutoField",
+    "BooleanField",
+    "DateTimeField",
+    "FloatField",
+    "IntegerField",
+    "StringField",
+    "ModelConfigurationError",
+]
