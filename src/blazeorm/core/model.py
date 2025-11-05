@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, Iterator, Optional, Type, TypeVar
 
 from ..utils import camel_to_snake
 from .fields import AutoField, Field
+from ..query.queryset import QueryManager
 
 
 class ModelConfigurationError(Exception):
@@ -114,6 +115,9 @@ class ModelMeta(type):
                 )
             )
 
+        if "objects" not in cls.__dict__:
+            cls.objects = QueryManager(cls)
+
         return cls
 
 
@@ -173,7 +177,3 @@ class Model(metaclass=ModelMeta):
 
     def delete(self, *args: Any, **kwargs: Any) -> None:
         raise NotImplementedError("Persistence layer must implement 'delete'.")
-
-    @classmethod
-    def objects(cls: Type[TModel]) -> Any:
-        raise NotImplementedError("Query manager will be provided by persistence layer.")
