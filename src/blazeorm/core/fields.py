@@ -4,7 +4,7 @@ Field definitions and descriptors for BlazeORM models.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence
 
 if TYPE_CHECKING:
@@ -81,7 +81,6 @@ class Field:
             raise ValueError(f"Value '{value}' for field '{self.name}' not in choices {self.choices}")
 
         python_value = self.to_python(value)
-        self.run_validators(python_value)
         instance._field_values[self.name] = python_value
 
     # Metadata helpers ----------------------------------------------------
@@ -148,6 +147,7 @@ class Field:
             "unique": self.unique,
             "nullable": self.nullable,
             "default": self.default,
+            "db_type": self.db_type,
             "db_column": self.db_column,
             "db_default": self.db_default,
             "index": self.index,
@@ -265,7 +265,7 @@ class DateTimeField(Field):
 
     def get_default(self) -> Any:
         if self.auto_now or self.auto_now_add:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
         return super().get_default()
 
     def to_python(self, value: Any) -> datetime:

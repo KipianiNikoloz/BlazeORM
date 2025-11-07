@@ -177,3 +177,15 @@ class Model(metaclass=ModelMeta):
 
     def delete(self, *args: Any, **kwargs: Any) -> None:
         raise NotImplementedError("Persistence layer must implement 'delete'.")
+
+    # Validation --------------------------------------------------------
+    def full_clean(self) -> None:
+        from ..validation import validate_instance
+
+        validate_instance(self)
+
+    def clean(self) -> None:
+        """
+        Hook for subclasses to implement model-level validation.
+        """
+        return None

@@ -5,7 +5,7 @@ Simple migration engine executing DDL operations with version tracking.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, List, Sequence
 
 from ..adapters.base import DatabaseAdapter
@@ -79,7 +79,7 @@ class MigrationEngine:
 
     def _record_migration(self, app: str, name: str) -> None:
         table = self.dialect.format_table(self.version_table)
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         self.adapter.execute(
             f"INSERT INTO {table} (app, name, applied_at) VALUES (?, ?, ?)",
             (app, name, timestamp),
