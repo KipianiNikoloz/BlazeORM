@@ -181,6 +181,7 @@ class Session:
     # Persistence helpers
     # ------------------------------------------------------------------ #
     def _persist_new(self, instance: Model) -> None:
+        instance.full_clean()
         table = self.dialect.format_table(instance._meta.table_name)
         columns = []
         params = []
@@ -205,6 +206,7 @@ class Session:
         self.identity_map.add(instance)
 
     def _persist_dirty(self, instance: Model) -> None:
+        instance.full_clean()
         pk_field = instance._meta.primary_key
         if pk_field is None:
             raise ValueError(f"Model '{instance.__class__.__name__}' lacks a primary key.")
