@@ -1,3 +1,5 @@
+import pytest
+
 from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.core import IntegerField, Model, StringField
 from blazeorm.persistence import Session
@@ -91,4 +93,36 @@ def test_session_updates_dirty_instances(tmp_path):
 
     updated_age = session.execute("SELECT age FROM \"user\" WHERE id = ?", (user.id,)).fetchone()[0]
     assert updated_age == 23
+    session.close()
+
+
+def test_session_transaction_context(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'context.db'}")
+    session = Session(adapter, connection_config=config)
+    create_table(session)
+
+    with session.transaction():
+        session.add(User(name="Eve", age=31))
+
+    row = session.execute("SELECT COUNT(*) FROM \"user\"").fetchone()[0]
+    assert row == 1
+    session.close()
+
+
+def test_nested_transactions_use_savepoints(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'nested.db'}")
+    session = Session(adapter, connection_config=config)
+    create_table(session)
+
+    with session.transaction():
+        session.add(User(name="Outer", age=44))
+        with pytest.raises(RuntimeError):
+            with session.transaction():
+                session.add(User(name="Inner", age=18))
+                raise RuntimeError("inner failure")
+
+    rows = session.execute("SELECT name FROM \"user\" ORDER BY id").fetchall()
+    assert [row["name"] for row in rows] == ["Outer"]
     session.close()

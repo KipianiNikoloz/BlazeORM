@@ -12,6 +12,7 @@ from ..core.model import Model
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
 from .identity_map import IdentityMap
+from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
 
 
@@ -33,7 +34,8 @@ class Session:
         self.connection_config = connection_config or ConnectionConfig(url="sqlite:///:memory:")
         self.identity_map = IdentityMap()
         self.unit_of_work = UnitOfWork()
-        self._transaction_active = False
+        self.transaction_manager = TransactionManager(adapter, self.dialect)
+        self._uow_snapshots: list[tuple[set[Model], set[Model], set[Model]]] = []
         self.adapter.connect(self.connection_config)
 
     # ------------------------------------------------------------------ #
@@ -54,28 +56,26 @@ class Session:
 
     # ------------------------------------------------------------------ #
     def begin(self) -> None:
-        if not self._transaction_active:
-            self.adapter.begin()
-            self._transaction_active = True
+        self.transaction_manager.begin()
+        self._snapshot_uow()
 
     def commit(self) -> None:
-        if not self._transaction_active:
+        if self.transaction_manager.depth == 0:
             self.begin()
         self.flush()
-        if self._transaction_active:
-            self.adapter.commit()
-            self._transaction_active = False
-        self.unit_of_work.clear()
+        self.transaction_manager.commit()
+        self._discard_uow_snapshot()
+        if self.transaction_manager.depth == 0:
+            self.unit_of_work.clear()
 
     def rollback(self) -> None:
-        if self._transaction_active:
-            self.adapter.rollback()
-            self._transaction_active = False
-        self.unit_of_work.clear()
+        self.transaction_manager.rollback()
+        self._restore_uow_snapshot()
 
     def close(self) -> None:
         self.adapter.close()
         self.identity_map.clear()
+        self._uow_snapshots.clear()
 
     # ------------------------------------------------------------------ #
     # Registration
@@ -138,6 +138,44 @@ class Session:
 
     def execute(self, sql: str, params: Iterable[Any] | None = None):
         return self.adapter.execute(sql, list(params or []))
+
+    # ------------------------------------------------------------------ #
+    @contextmanager
+    def transaction(self):
+        """
+        Provide nested transaction context with savepoint support.
+        """
+
+        self.begin()
+        try:
+            yield self
+        except Exception:
+            self.rollback()
+            raise
+        else:
+            self.commit()
+
+    # ------------------------------------------------------------------ #
+    def _snapshot_uow(self) -> None:
+        snapshot = (
+            set(self.unit_of_work.new),
+            set(self.unit_of_work.dirty),
+            set(self.unit_of_work.deleted),
+        )
+        self._uow_snapshots.append(snapshot)
+
+    def _discard_uow_snapshot(self) -> None:
+        if self._uow_snapshots:
+            self._uow_snapshots.pop()
+
+    def _restore_uow_snapshot(self) -> None:
+        if not self._uow_snapshots:
+            self.unit_of_work.clear()
+            return
+        new_snapshot, dirty_snapshot, deleted_snapshot = self._uow_snapshots.pop()
+        self.unit_of_work.new = set(new_snapshot)
+        self.unit_of_work.dirty = set(dirty_snapshot)
+        self.unit_of_work.deleted = set(deleted_snapshot)
 
     # ------------------------------------------------------------------ #
     # Persistence helpers
