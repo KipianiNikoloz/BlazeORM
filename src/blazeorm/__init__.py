@@ -16,6 +16,7 @@ from .core.fields import (
 )  # noqa: F401
 from .persistence import Session  # noqa: F401
 from .query import Q, QuerySet  # noqa: F401
+from .schema import MigrationEngine, MigrationOperation, SchemaBuilder  # noqa: F401
 
 __all__ = [
     "Model",
@@ -29,4 +30,7 @@ __all__ = [
     "Session",
     "QuerySet",
     "Q",
+    "SchemaBuilder",
+    "MigrationEngine",
+    "MigrationOperation",
 ]
