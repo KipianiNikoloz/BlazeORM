@@ -5,7 +5,7 @@ Session management coordinating adapters, unit of work, and identity map.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Iterable, Optional, Tuple, Type
+from typing import Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
 from ..core.model import Model
