@@ -189,3 +189,13 @@ class Model(metaclass=ModelMeta):
         Hook for subclasses to implement model-level validation.
         """
         return None
+
+    @classmethod
+    def register_hook(cls, event: str, handler) -> None:
+        from ..hooks import hooks
+
+        hooks.register(event, handler, model=cls)
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..hooks import HookDispatcher

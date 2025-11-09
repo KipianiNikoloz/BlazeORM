@@ -14,6 +14,7 @@ from .core.fields import (
     IntegerField,
     StringField,
 )  # noqa: F401
+from .hooks import hooks  # noqa: F401
 from .persistence import Session  # noqa: F401
 from .query import Q, QuerySet  # noqa: F401
 from .schema import MigrationEngine, MigrationOperation, SchemaBuilder  # noqa: F401
@@ -35,4 +36,5 @@ __all__ = [
     "MigrationEngine",
     "MigrationOperation",
     "ValidationError",
+    "hooks",
 ]

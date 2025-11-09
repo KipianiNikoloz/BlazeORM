@@ -5,7 +5,7 @@ Session management coordinating adapters, unit of work, and identity map.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Iterable, Optional, Type
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
 from ..core.model import Model
@@ -14,6 +14,10 @@ from ..dialects.sqlite import SQLiteDialect
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
+
+
+if TYPE_CHECKING:
+    from ..hooks import HookDispatcher
 
 
 class Session:
@@ -36,6 +40,9 @@ class Session:
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)
         self._uow_snapshots: list[tuple[set[Model], set[Model], set[Model]]] = []
+        from ..hooks import hooks
+
+        self.hooks = hooks
         self.adapter.connect(self.connection_config)
 
     # ------------------------------------------------------------------ #
@@ -67,6 +74,7 @@ class Session:
         self._discard_uow_snapshot()
         if self.transaction_manager.depth == 0:
             self.unit_of_work.clear()
+            self.hooks.fire("after_commit", None, session=self)
 
     def rollback(self) -> None:
         self.transaction_manager.rollback()
@@ -181,7 +189,10 @@ class Session:
     # Persistence helpers
     # ------------------------------------------------------------------ #
     def _persist_new(self, instance: Model) -> None:
+        self.hooks.fire("before_validate", instance, session=self)
         instance.full_clean()
+        self.hooks.fire("after_validate", instance, session=self)
+        self.hooks.fire("before_save", instance, session=self, created=True)
         table = self.dialect.format_table(instance._meta.table_name)
         columns = []
         params = []
@@ -204,9 +215,13 @@ class Session:
 
         instance._initial_state = dict(instance._field_values)
         self.identity_map.add(instance)
+        self.hooks.fire("after_save", instance, session=self, created=True)
 
     def _persist_dirty(self, instance: Model) -> None:
+        self.hooks.fire("before_validate", instance, session=self)
         instance.full_clean()
+        self.hooks.fire("after_validate", instance, session=self)
+        self.hooks.fire("before_save", instance, session=self, created=False)
         pk_field = instance._meta.primary_key
         if pk_field is None:
             raise ValueError(f"Model '{instance.__class__.__name__}' lacks a primary key.")
@@ -237,6 +252,7 @@ class Session:
         sql = f"UPDATE {table} SET {set_sql} WHERE {pk_clause}"
         self.adapter.execute(sql, params)
         instance._initial_state = dict(instance._field_values)
+        self.hooks.fire("after_save", instance, session=self, created=False)
 
     def _persist_deleted(self, instance: Model) -> None:
         pk_field = instance._meta.primary_key
@@ -245,8 +261,10 @@ class Session:
         pk_value = getattr(instance, pk_field.name)
         if pk_value is None:
             return
+        self.hooks.fire("before_delete", instance, session=self)
         table = self.dialect.format_table(instance._meta.table_name)
         pk_clause = f"{self.dialect.quote_identifier(pk_field.db_column or pk_field.name)} = {self.dialect.parameter_placeholder()}"
         sql = f"DELETE FROM {table} WHERE {pk_clause}"
         self.adapter.execute(sql, (pk_value,))
         self.identity_map.remove(instance)
+        self.hooks.fire("after_delete", instance, session=self)
