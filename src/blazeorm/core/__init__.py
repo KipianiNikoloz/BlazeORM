@@ -12,6 +12,7 @@ from .fields import (
     StringField,
 )
 from .model import Model, ModelConfigurationError, ModelMeta, ModelOptions
+from .relations import ForeignKey, ManyToManyField, OneToOneField
 
 __all__ = [
     "AutoField",
@@ -25,4 +26,7 @@ __all__ = [
     "ModelMeta",
     "ModelOptions",
     "StringField",
+    "ForeignKey",
+    "OneToOneField",
+    "ManyToManyField",
 ]
