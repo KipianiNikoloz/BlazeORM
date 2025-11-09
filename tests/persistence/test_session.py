@@ -3,6 +3,7 @@ import pytest
 from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.core import IntegerField, Model, StringField
 from blazeorm.persistence import Session
+from blazeorm.validation import ValidationError
 
 
 class User(Model):
@@ -125,4 +126,19 @@ def test_nested_transactions_use_savepoints(tmp_path):
 
     rows = session.execute("SELECT name FROM \"user\" ORDER BY id").fetchall()
     assert [row["name"] for row in rows] == ["Outer"]
+    session.close()
+
+
+def test_session_validation_error_on_commit(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'invalid.db'}")
+    session = Session(adapter, connection_config=config)
+    create_table(session)
+
+    session.begin()
+    invalid = User()  # missing required name
+    session.add(invalid)
+    with pytest.raises(ValidationError):
+        session.commit()
+    session.rollback()
     session.close()

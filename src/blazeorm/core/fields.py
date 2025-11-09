@@ -4,7 +4,7 @@ Field definitions and descriptors for BlazeORM models.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence
 
 if TYPE_CHECKING:
@@ -32,6 +32,7 @@ class Field:
         unique: bool = False,
         nullable: bool = True,
         default: Any = None,
+        db_type: Optional[str] = None,
         db_column: Optional[str] = None,
         db_default: Any = None,
         index: bool = False,
@@ -43,6 +44,7 @@ class Field:
         self.unique = unique
         self.nullable = nullable
         self.default = default
+        self.db_type = db_type
         self.db_column = db_column
         self.db_default = db_default
         self.index = index
@@ -79,7 +81,6 @@ class Field:
             raise ValueError(f"Value '{value}' for field '{self.name}' not in choices {self.choices}")
 
         python_value = self.to_python(value)
-        self.run_validators(python_value)
         instance._field_values[self.name] = python_value
 
     # Metadata helpers ----------------------------------------------------
@@ -120,6 +121,7 @@ class Field:
             "unique": self.unique,
             "nullable": self.nullable,
             "default": self.default,
+            "db_type": self.db_type,
             "db_column": self.db_column,
             "db_default": self.db_default,
             "index": self.index,
@@ -145,6 +147,7 @@ class Field:
             "unique": self.unique,
             "nullable": self.nullable,
             "default": self.default,
+            "db_type": self.db_type,
             "db_column": self.db_column,
             "db_default": self.db_default,
             "index": self.index,
@@ -158,7 +161,7 @@ class AutoField(Field):
     """
 
     def __init__(self) -> None:
-        super().__init__(primary_key=True, nullable=False)
+        super().__init__(primary_key=True, nullable=False, db_type="INTEGER")
 
     def to_python(self, value: Any) -> int:
         if value is None:
@@ -170,6 +173,10 @@ class AutoField(Field):
 
 
 class IntegerField(Field):
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("db_type", "INTEGER")
+        super().__init__(**kwargs)
+
     def to_python(self, value: Any) -> int:
         if value is None:
             return value
@@ -180,6 +187,10 @@ class IntegerField(Field):
 
 
 class FloatField(Field):
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("db_type", "REAL")
+        super().__init__(**kwargs)
+
     def to_python(self, value: Any) -> float:
         if value is None:
             return value
@@ -191,6 +202,7 @@ class FloatField(Field):
 
 class BooleanField(Field):
     def __init__(self, *, default: Any = False, **kwargs: Any) -> None:
+        kwargs.setdefault("db_type", "BOOLEAN")
         kwargs.setdefault("nullable", False)
         super().__init__(default=default, **kwargs)
 
@@ -212,6 +224,7 @@ class BooleanField(Field):
 
 class StringField(Field):
     def __init__(self, *, max_length: int = 255, **kwargs: Any) -> None:
+        kwargs.setdefault("db_type", "TEXT")
         super().__init__(**kwargs)
         self.max_length = max_length
 
@@ -232,6 +245,7 @@ class StringField(Field):
             unique=self.unique,
             nullable=self.nullable,
             default=self.default,
+            db_type=self.db_type,
             db_column=self.db_column,
             db_default=self.db_default,
             index=self.index,
@@ -244,13 +258,14 @@ class StringField(Field):
 
 class DateTimeField(Field):
     def __init__(self, *, auto_now: bool = False, auto_now_add: bool = False, **kwargs: Any) -> None:
+        kwargs.setdefault("db_type", "TEXT")
         super().__init__(**kwargs)
         self.auto_now = auto_now
         self.auto_now_add = auto_now_add
 
     def get_default(self) -> Any:
         if self.auto_now or self.auto_now_add:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
         return super().get_default()
 
     def to_python(self, value: Any) -> datetime:
@@ -268,6 +283,7 @@ class DateTimeField(Field):
             unique=self.unique,
             nullable=self.nullable,
             default=self.default,
+            db_type=self.db_type,
             db_column=self.db_column,
             db_default=self.db_default,
             index=self.index,
