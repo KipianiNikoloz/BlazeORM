@@ -5,6 +5,7 @@ QuerySet implementation providing a chainable query API.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple
+
 from ..dialects.sqlite import SQLiteDialect
 from .compiler import SQLCompiler
 from .expressions import Q
@@ -29,6 +30,8 @@ class QuerySet:
         ordering: Tuple[str, ...] = (),
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        select_related: Tuple[str, ...] = (),
+        prefetch_related: Tuple[str, ...] = (),
     ) -> None:
         self.model = model
         self.dialect = dialect or SQLiteDialect()
@@ -36,6 +39,8 @@ class QuerySet:
         self._ordering = ordering
         self._limit = limit
         self._offset = offset
+        self._select_related = select_related
+        self._prefetch_related = prefetch_related
 
     # Public API --------------------------------------------------------
     def filter(self, **lookups: Any) -> "QuerySet":
@@ -56,6 +61,18 @@ class QuerySet:
     def offset(self, value: int) -> "QuerySet":
         return self._clone(offset=value)
 
+    def select_related(self, *fields: str) -> "QuerySet":
+        if not fields:
+            raise ValueError("select_related() requires at least one relationship name.")
+        combined = tuple(dict.fromkeys(self._select_related + fields))
+        return self._clone(select_related=combined)
+
+    def prefetch_related(self, *fields: str) -> "QuerySet":
+        if not fields:
+            raise ValueError("prefetch_related() requires at least one relationship name.")
+        combined = tuple(dict.fromkeys(self._prefetch_related + fields))
+        return self._clone(prefetch_related=combined)
+
     def to_sql(self) -> tuple[str, list[Any]]:
         compiler = SQLCompiler(
             model=self.model,
@@ -64,6 +81,7 @@ class QuerySet:
             ordering=self._ordering,
             limit=self._limit,
             offset=self._offset,
+            select_related=self._select_related,
         )
         return compiler.compile()
 
@@ -85,6 +103,8 @@ class QuerySet:
             "ordering": overrides.get("ordering", self._ordering),
             "limit": overrides.get("limit", self._limit),
             "offset": overrides.get("offset", self._offset),
+            "select_related": overrides.get("select_related", self._select_related),
+            "prefetch_related": overrides.get("prefetch_related", self._prefetch_related),
         }
         return QuerySet(**params)
 
@@ -108,3 +128,9 @@ class QueryManager:
 
     def where(self, q_object: Q) -> QuerySet:
         return self.all().where(q_object)
+
+    def select_related(self, *fields: str) -> QuerySet:
+        return self.all().select_related(*fields)
+
+    def prefetch_related(self, *fields: str) -> QuerySet:
+        return self.all().prefetch_related(*fields)

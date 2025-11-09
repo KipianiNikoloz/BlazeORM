@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, List, Tuple
 
 from ..dialects.base import Dialect
+from ..core.relations import RelatedField
 from .expressions import AND, OR, Q
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ class SQLCompiler:
         ordering: tuple[str, ...] = (),
         limit: int | None = None,
         offset: int | None = None,
+        select_related: Tuple[str, ...] = (),
     ) -> None:
         self.model = model
         self.dialect = dialect
@@ -44,13 +46,12 @@ class SQLCompiler:
         self.ordering = ordering
         self.limit = limit
         self.offset = offset
+        self.select_related = select_related
 
     def compile(self) -> Tuple[str, List[Any]]:
-        select_list = ", ".join(
-            self.dialect.quote_identifier(field.db_column or field.name)
-            for field in self.model._meta.get_fields()
-        )
-        sql_parts = [f"SELECT {select_list}", "FROM", self.dialect.format_table(self.model._meta.table_name)]
+        select_list = self._build_select_list()
+        sql_parts: List[str] = [f"SELECT {select_list}", "FROM", self._table_for_model(self.model)]
+        sql_parts.extend(self._build_select_related_joins())
         params: List[Any] = []
 
         if self.where and not self.where.is_empty():
@@ -70,6 +71,71 @@ class SQLCompiler:
             sql_parts.append(limit_clause)
 
         return " ".join(sql_parts), params
+
+    # Helpers -----------------------------------------------------------
+    def _table_for_model(self, model: type["Model"]) -> str:
+        return self.dialect.format_table(model._meta.table_name)
+
+    def _qualified(self, table: str, column: str) -> str:
+        return f"{table}.{self.dialect.quote_identifier(column)}"
+
+    def _build_select_list(self) -> str:
+        columns: List[str] = []
+        base_table = self._table_for_model(self.model)
+        for field in self.model._meta.get_fields():
+            columns.append(self._qualified(base_table, field.db_column or field.name))
+
+        for path in self.select_related:
+            related_model = self._get_related_model(path)
+            table = self._table_for_model(related_model)
+            for field in related_model._meta.get_fields():
+                alias = f"{path}__{field.name}"
+                columns.append(
+                    f"{self._qualified(table, field.db_column or field.name)} AS {self.dialect.quote_identifier(alias)}"
+                )
+        return ", ".join(columns)
+
+    def _build_select_related_joins(self) -> List[str]:
+        joins: List[str] = []
+        base_table = self._table_for_model(self.model)
+        for path in self.select_related:
+            field = self._get_relation_field(self.model, path)
+            remote_model = field.remote_model
+            if remote_model is None:
+                raise ValueError(f"Relation '{path}' could not be resolved.")
+            remote_table = self._table_for_model(remote_model)
+            fk_column = field.db_column or field.name
+            pk_field = remote_model._meta.primary_key
+            if pk_field is None:
+                raise ValueError(f"Related model '{remote_model.__name__}' lacks primary key.")
+            pk_column = pk_field.db_column or pk_field.name
+            joins.append(
+                f"LEFT JOIN {remote_table} ON {self._qualified(base_table, fk_column)} = {self._qualified(remote_table, pk_column)}"
+            )
+        return joins
+
+    def _get_related_model(self, path: str):
+        field = self._get_relation_field(self.model, path)
+        if field.remote_model is None:
+            raise ValueError(f"Relation '{path}' could not be resolved.")
+        return field.remote_model
+
+    def _get_relation_field(self, model: type["Model"], path: str) -> RelatedField:
+        segments = path.split("__")
+        current_model = model
+        field = None
+        for segment in segments:
+            field = current_model._meta.get_field(segment)
+            if not isinstance(field, RelatedField):
+                raise ValueError(f"Field '{segment}' on '{current_model.__name__}' is not a relationship.")
+            if field.relation_type == "many-to-many":
+                raise ValueError("select_related does not support many-to-many relationships.")
+            if field.remote_model is None:
+                raise ValueError(f"Relation target '{field.to}' is not resolved.")
+            current_model = field.remote_model
+        if field is None:
+            raise ValueError(f"Invalid relation path '{path}'")
+        return field
 
     # Compilation helpers -----------------------------------------------
     def _compile_ordering(self, field_name: str) -> str:
