@@ -14,6 +14,7 @@ from .core.fields import (
     IntegerField,
     StringField,
 )  # noqa: F401
+from .core.relations import ForeignKey, ManyToManyField, OneToOneField  # noqa: F401
 from .hooks import hooks  # noqa: F401
 from .persistence import Session  # noqa: F401
 from .query import Q, QuerySet  # noqa: F401
@@ -28,6 +29,9 @@ __all__ = [
     "FloatField",
     "IntegerField",
     "StringField",
+    "ForeignKey",
+    "OneToOneField",
+    "ManyToManyField",
     "ModelConfigurationError",
     "Session",
     "QuerySet",
