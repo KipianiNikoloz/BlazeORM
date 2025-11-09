@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, Iterator, Optional, Type, TypeVar
 
 from ..utils import camel_to_snake
 from .fields import AutoField, Field
+from .relations import ManyToManyField, RelatedField, relation_registry
 from ..query.queryset import QueryManager
 
 
@@ -29,6 +30,7 @@ class ModelOptions:
     abstract: bool = False
     fields: "OrderedDict[str, Field]" = field(default_factory=OrderedDict)
     primary_key: Optional[Field] = None
+    many_to_many: list[ManyToManyField] = field(default_factory=list)
 
     def add_field(self, field_obj: Field) -> None:
         if field_obj.name in self.fields:
@@ -97,7 +99,14 @@ class ModelMeta(type):
         )
         for attr_name, field_obj in sorted_fields:
             field_obj.contribute_to_class(cls, attr_name)
+            if isinstance(field_obj, ManyToManyField):
+                field_obj.model = cls
+                cls._meta.many_to_many.append(field_obj)
+                relation_registry.register_field(cls, field_obj)
+                continue
             cls._meta.add_field(field_obj)
+            if isinstance(field_obj, RelatedField):
+                relation_registry.register_field(cls, field_obj)
 
         if not cls._meta.primary_key and not cls._meta.abstract:
             if "id" in cls._meta.fields:
@@ -117,6 +126,8 @@ class ModelMeta(type):
 
         if "objects" not in cls.__dict__:
             cls.objects = QueryManager(cls)
+
+        relation_registry.register_model(cls)
 
         return cls
 
