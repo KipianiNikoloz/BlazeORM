@@ -32,13 +32,18 @@ class Session:
         adapter: DatabaseAdapter,
         *,
         connection_config: Optional[ConnectionConfig] = None,
+        dsn: str | None = None,
         autocommit: bool = False,
         cache_backend: Optional[CacheBackend] = None,
     ) -> None:
         self.adapter = adapter
         self.autocommit = autocommit
         self.dialect: Dialect = adapter.dialect if hasattr(adapter, "dialect") else SQLiteDialect()
-        self.connection_config = connection_config or ConnectionConfig(url="sqlite:///:memory:")
+        if connection_config and dsn:
+            raise ValueError("Provide either connection_config or dsn, not both.")
+        if dsn and not connection_config:
+            connection_config = ConnectionConfig.from_dsn(dsn)
+        self.connection_config = connection_config or ConnectionConfig.from_dsn("sqlite:///:memory:")
         self.identity_map = IdentityMap()
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)

@@ -11,6 +11,7 @@ from typing import Iterable, List, Sequence
 from ..adapters.base import DatabaseAdapter
 from ..dialects.base import Dialect
 from ..security.migrations import confirm_destructive_operation
+from ..utils import get_logger
 from .builder import SchemaBuilder
 
 
@@ -38,6 +39,7 @@ class MigrationEngine:
         self.dialect = dialect
         self.builder = SchemaBuilder(dialect)
         self.version_table = version_table
+        self.logger = get_logger("schema.migration")
         self._ensure_version_table()
 
     def _ensure_version_table(self) -> None:
@@ -61,7 +63,11 @@ class MigrationEngine:
         with self._transaction():
             for op in operations:
                 if op.destructive:
-                    confirm_destructive_operation(op.description or op.sql, force=op.force)
+                    description = op.description or op.sql
+                    self.logger.warning(
+                        "Destructive migration detected: %s (force=%s)", description, op.force
+                    )
+                    confirm_destructive_operation(description, force=op.force)
                 self.adapter.execute(op.sql)
             self._record_migration(app, name)
 
