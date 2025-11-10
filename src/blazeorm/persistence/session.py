@@ -11,6 +11,7 @@ from ..adapters.base import ConnectionConfig, DatabaseAdapter
 from ..core.model import Model
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
+from ..utils import get_logger, time_call
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
@@ -43,6 +44,7 @@ class Session:
         from ..hooks import hooks
 
         self.hooks = hooks
+        self.logger = get_logger("persistence.session")
         self.adapter.connect(self.connection_config)
 
     # ------------------------------------------------------------------ #
@@ -131,7 +133,7 @@ class Session:
             self.dialect.quote_identifier(f.db_column or f.name) for f in model._meta.get_fields()
         )
         sql = f"SELECT {select_list} FROM {self.dialect.format_table(model._meta.table_name)} WHERE {quoted_column} = ? LIMIT 1"
-        cursor = self.adapter.execute(sql, (value,))
+        cursor = self.execute(sql, (value,))
         row = cursor.fetchone()
         if not row:
             return None
@@ -145,7 +147,9 @@ class Session:
         return instance
 
     def execute(self, sql: str, params: Iterable[Any] | None = None):
-        return self.adapter.execute(sql, list(params or []))
+        param_list = list(params or [])
+        with time_call("session.execute", self.logger, sql=sql, params=self._redact(param_list), threshold_ms=200):
+            return self.adapter.execute(sql, param_list)
 
     # ------------------------------------------------------------------ #
     @contextmanager
@@ -206,7 +210,7 @@ class Session:
         placeholders = ", ".join(self.dialect.parameter_placeholder() for _ in columns)
         columns_sql = ", ".join(columns)
         sql = f"INSERT INTO {table} ({columns_sql}) VALUES ({placeholders})"
-        cursor = self.adapter.execute(sql, params)
+        cursor = self.execute(sql, params)
 
         pk_field = instance._meta.primary_key
         if pk_field and getattr(instance, pk_field.name, None) is None:
@@ -250,7 +254,7 @@ class Session:
         pk_clause = f"{self.dialect.quote_identifier(pk_field.db_column or pk_field.name)} = {self.dialect.parameter_placeholder()}"
         params.append(pk_value)
         sql = f"UPDATE {table} SET {set_sql} WHERE {pk_clause}"
-        self.adapter.execute(sql, params)
+        self.execute(sql, params)
         instance._initial_state = dict(instance._field_values)
         self.hooks.fire("after_save", instance, session=self, created=False)
 
@@ -265,6 +269,16 @@ class Session:
         table = self.dialect.format_table(instance._meta.table_name)
         pk_clause = f"{self.dialect.quote_identifier(pk_field.db_column or pk_field.name)} = {self.dialect.parameter_placeholder()}"
         sql = f"DELETE FROM {table} WHERE {pk_clause}"
-        self.adapter.execute(sql, (pk_value,))
+        self.execute(sql, (pk_value,))
         self.identity_map.remove(instance)
         self.hooks.fire("after_delete", instance, session=self)
+
+    @staticmethod
+    def _redact(params: Iterable[Any]) -> list[Any]:
+        redacted = []
+        for value in params:
+            if isinstance(value, str) and any(token in value.lower() for token in ("password", "secret", "token")):
+                redacted.append("***")
+            else:
+                redacted.append(value)
+        return redacted

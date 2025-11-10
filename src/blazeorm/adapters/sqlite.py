@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+import logging
 from typing import Any, Iterable, Sequence
 
 from ..dialects.sqlite import SQLiteDialect
+from ..utils import get_logger, time_call
 from .base import ConnectionConfig, DatabaseAdapter
 
 
@@ -25,6 +27,7 @@ class SQLiteAdapter(DatabaseAdapter):
     def __init__(self) -> None:
         self.dialect = SQLiteDialect()
         self._state: SQLiteConnectionState | None = None
+        self.logger = get_logger("adapters.sqlite")
 
     # ------------------------------------------------------------------ #
     # Connection management
@@ -65,7 +68,10 @@ class SQLiteAdapter(DatabaseAdapter):
     def execute(self, sql: str, params: Sequence[Any] | None = None) -> sqlite3.Cursor:
         connection = self._ensure_connection()
         cursor = connection.cursor()
-        cursor.execute(sql, params or ())
+        params = params or ()
+        with time_call("sqlite.execute", self.logger):
+            cursor.execute(sql, params)
+        self.logger.debug("SQL executed", extra={"sql": sql, "params": self._redact(params)})
         return cursor
 
     def executemany(
@@ -73,7 +79,8 @@ class SQLiteAdapter(DatabaseAdapter):
     ) -> sqlite3.Cursor:
         connection = self._ensure_connection()
         cursor = connection.cursor()
-        cursor.executemany(sql, seq_of_params)
+        with time_call("sqlite.executemany", self.logger):
+            cursor.executemany(sql, seq_of_params)
         return cursor
 
     # ------------------------------------------------------------------ #
@@ -103,3 +110,13 @@ class SQLiteAdapter(DatabaseAdapter):
         if url.startswith(prefix):
             return url[len(prefix) :]
         return url
+
+    @staticmethod
+    def _redact(params: Sequence[Any]) -> Sequence[Any]:
+        redacted = []
+        for value in params:
+            if isinstance(value, str) and "password" in value.lower():
+                redacted.append("***")
+            else:
+                redacted.append(value)
+        return redacted
