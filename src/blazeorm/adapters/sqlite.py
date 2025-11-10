@@ -35,6 +35,11 @@ class SQLiteAdapter(DatabaseAdapter):
     def connect(self, config: ConnectionConfig) -> sqlite3.Connection:
         path = self._normalize_path(config.url)
         timeout = config.timeout if config.timeout is not None else 5.0
+        self.logger.info(
+            "Connecting to SQLite database %s (autocommit=%s)",
+            config.descriptive_label(),
+            config.autocommit,
+        )
 
         connection = sqlite3.connect(
             path,

@@ -4,10 +4,12 @@ Adapter protocol definitions for BlazeORM.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 from ..dialects.base import Dialect
+from ..security.dsns import DSNConfig, parse_dsn
 
 
 @dataclass(slots=True)
@@ -21,6 +23,47 @@ class ConnectionConfig:
     isolation_level: str | None = None
     timeout: float | None = None
     options: dict[str, Any] | None = None
+    dsn: DSNConfig | None = None
+    source: str | None = None
+
+    @classmethod
+    def from_dsn(cls, dsn: str, **kwargs: Any) -> "ConnectionConfig":
+        """
+        Build a connection config by parsing the DSN string.
+        """
+
+        parsed = parse_dsn(dsn)
+        return cls(url=dsn, dsn=parsed, **kwargs)
+
+    @classmethod
+    def from_env(cls, env_var: str, **kwargs: Any) -> "ConnectionConfig":
+        """
+        Build a config from an environment variable containing a DSN.
+        """
+
+        value = os.getenv(env_var)
+        if not value:
+            raise ValueError(f"Environment variable {env_var} is not set")
+        return cls.from_dsn(value, source=env_var, **kwargs)
+
+    def redacted_dsn(self) -> str:
+        """
+        Return a DSN safe for logging (credentials removed).
+        """
+
+        if self.dsn:
+            return self.dsn.redacted()
+        return self.url
+
+    def descriptive_label(self) -> str:
+        """
+        Describe the config source for diagnostics.
+        """
+
+        redacted = self.redacted_dsn()
+        if self.source:
+            return f"{self.source} ({redacted})"
+        return redacted
 
 
 class DatabaseAdapter(Protocol):

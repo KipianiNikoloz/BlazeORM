@@ -8,6 +8,7 @@ from typing import Iterable, List
 
 from ..core.model import Model
 from ..dialects.base import Dialect
+from ..utils import get_logger
 
 
 class SchemaBuilder:
@@ -17,6 +18,7 @@ class SchemaBuilder:
 
     def __init__(self, dialect: Dialect) -> None:
         self.dialect = dialect
+        self.logger = get_logger("schema.builder")
 
     def create_table_sql(self, model: type[Model]) -> str:
         columns_sql = self._render_columns(model)
@@ -26,6 +28,10 @@ class SchemaBuilder:
 
     def drop_table_sql(self, model: type[Model]) -> str:
         table_name = self.dialect.format_table(model._meta.table_name)
+        self.logger.warning(
+            "DROP TABLE generated for %s; confirm destructive migration before applying.",
+            table_name,
+        )
         return f"DROP TABLE IF EXISTS {table_name}"
 
     def _render_columns(self, model: type[Model]) -> List[str]:
