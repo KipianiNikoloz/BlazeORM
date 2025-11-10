@@ -64,3 +64,23 @@ def test_in_memory_database():
     row = adapter.execute("SELECT value FROM sample").fetchone()
     assert row[0] == "hello"
     adapter.close()
+
+
+def test_execute_with_mismatched_params_raises(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'mismatch.db'}")
+    adapter.connect(config)
+    adapter.execute("CREATE TABLE mismatch (value TEXT)")
+    with pytest.raises(ValueError):
+        adapter.execute("INSERT INTO mismatch (value) VALUES (?)", ("one", "two"))
+    adapter.close()
+
+
+def test_execute_with_params_without_placeholders_raises(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'no_placeholder.db'}")
+    adapter.connect(config)
+    adapter.execute("CREATE TABLE t (value INTEGER)")
+    with pytest.raises(ValueError):
+        adapter.execute("INSERT INTO t DEFAULT VALUES", (1,))
+    adapter.close()
