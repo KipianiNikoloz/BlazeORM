@@ -69,9 +69,9 @@ class SQLiteAdapter(DatabaseAdapter):
         connection = self._ensure_connection()
         cursor = connection.cursor()
         params = params or ()
-        with time_call("sqlite.execute", self.logger):
+        self._validate_params(sql, params)
+        with time_call("sqlite.execute", self.logger, sql=sql, params=self._redact(params)):
             cursor.execute(sql, params)
-        self.logger.debug("SQL executed", extra={"sql": sql, "params": self._redact(params)})
         return cursor
 
     def executemany(
@@ -79,8 +79,11 @@ class SQLiteAdapter(DatabaseAdapter):
     ) -> sqlite3.Cursor:
         connection = self._ensure_connection()
         cursor = connection.cursor()
-        with time_call("sqlite.executemany", self.logger):
-            cursor.executemany(sql, seq_of_params)
+        seq = list(seq_of_params)
+        for params in seq:
+            self._validate_params(sql, params)
+        with time_call("sqlite.executemany", self.logger, sql=sql, params="bulk"):
+            cursor.executemany(sql, seq)
         return cursor
 
     # ------------------------------------------------------------------ #
@@ -120,3 +123,18 @@ class SQLiteAdapter(DatabaseAdapter):
             else:
                 redacted.append(value)
         return redacted
+
+    @staticmethod
+    def _count_placeholders(sql: str) -> int:
+        return sql.count("?")
+
+    def _validate_params(self, sql: str, params: Sequence[Any]) -> None:
+        placeholder_count = self._count_placeholders(sql)
+        if not params:
+            return
+        if placeholder_count == 0:
+            raise ValueError("Parameters provided but SQL statement has no placeholders.")
+        if placeholder_count != len(params):
+            raise ValueError(
+                f"Parameter count mismatch: expected {placeholder_count}, received {len(params)}."
+            )
