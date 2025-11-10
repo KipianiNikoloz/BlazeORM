@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import ParseResult, parse_qs, urlencode, urlparse, urlunparse
 
 
 @dataclass
@@ -15,23 +16,38 @@ class DSNConfig:
     host: Optional[str]
     port: Optional[int]
     database: Optional[str]
+    path: str
     query: dict[str, str]
 
     def redacted(self) -> str:
-        user_part = self.username or ""
-        if user_part and self.password:
-            user_part += ":***"
-        if user_part:
-            user_part += "@"
-        host = self.host or "localhost"
-        port = f":{self.port}" if self.port else ""
-        db = f"/{self.database}" if self.database else ""
-        return f"{self.driver}://{user_part}{host}{port}{db}" 
+        """
+        Return the DSN with credentials redacted but structure preserved.
+        """
+
+        netloc = ""
+        if self.username:
+            netloc += self.username
+            if self.password:
+                netloc += ":***"
+            netloc += "@"
+        if self.host:
+            netloc += self.host
+        if self.port:
+            netloc += f":{self.port}"
+
+        query_string = urlencode(self.query) if self.query else ""
+
+        # Build manually so we retain the double slash prefix even when netloc is empty
+        result = f"{self.driver}://"
+        if netloc:
+            result += netloc
+        result += self.path or ""
+        if query_string:
+            result += f"?{query_string}"
+        return result
 
 
 def parse_dsn(dsn: str) -> DSNConfig:
-    from urllib.parse import urlparse, parse_qs
-
     parsed = urlparse(dsn)
     query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
     password = parsed.password
@@ -42,6 +58,7 @@ def parse_dsn(dsn: str) -> DSNConfig:
         host=parsed.hostname,
         port=parsed.port,
         database=parsed.path.lstrip("/") or None,
+        path=parsed.path or "",
         query=query,
     )
 

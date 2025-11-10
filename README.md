@@ -16,4 +16,20 @@ Every query executed through the session or adapters emits timing information wi
 
 ## Security
 
-BlazeORM enforces parameterized queries and offers DSN parsing helpers. Use `blazeorm.security.dsns.parse_dsn` to safely handle connection strings and `confirm_destructive_operation` to guard dangerous migration steps.
+BlazeORM enforces parameterized queries and integrates DSN utilities across adapters, sessions, and schema tooling.
+
+### DSN handling
+
+- Build safe connection configs with `ConnectionConfig.from_dsn("postgres://...")` or `ConnectionConfig.from_env("DATABASE_URL")`. DSN credentials are automatically redacted in logs.
+- Sessions can now be created directly from a DSN: `Session(SQLiteAdapter(), dsn="sqlite:///example.db")`.
+- Use `blazeorm.security.dsns.parse_dsn` for manual parsing needs or redaction helpers.
+
+### Migration safety
+
+- Generating destructive schema statements (for example, `SchemaBuilder.drop_table_sql`) emits warnings.
+- `MigrationEngine` logs every destructive operation and requires `force=True` to proceed, delegating to `confirm_destructive_operation`.
+
+### Secure parameter handling
+
+- All adapters validate placeholder counts before dispatching SQL and ensure parameterized execution.
+- Logged parameters are redacted when they appear to contain secrets (e.g., strings including `password`).
