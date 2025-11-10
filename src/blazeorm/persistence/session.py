@@ -12,6 +12,7 @@ from ..core.model import Model
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import get_logger, time_call
+from ..cache import CacheBackend, NoOpCache
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
@@ -32,6 +33,7 @@ class Session:
         *,
         connection_config: Optional[ConnectionConfig] = None,
         autocommit: bool = False,
+        cache_backend: Optional[CacheBackend] = None,
     ) -> None:
         self.adapter = adapter
         self.autocommit = autocommit
@@ -41,6 +43,7 @@ class Session:
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)
         self._uow_snapshots: list[tuple[set[Model], set[Model], set[Model]]] = []
+        self.cache = cache_backend or NoOpCache()
         from ..hooks import hooks
 
         self.hooks = hooks
@@ -126,6 +129,12 @@ class Session:
             cached = self.identity_map.get(model, value)
             if cached is not None:
                 return cached
+            cached_payload = self.cache.get(model, value)
+            if cached_payload is not None:
+                instance = model(**cached_payload)
+                instance._initial_state = dict(instance._field_values)
+                self.identity_map.add(instance)
+                return instance
 
         column = model._meta.get_field(field_name).db_column or field_name
         quoted_column = self.dialect.quote_identifier(column)
@@ -144,6 +153,7 @@ class Session:
             setattr(instance, model._meta.primary_key.name, row[model._meta.primary_key.name])
         instance._initial_state = dict(instance._field_values)
         self.identity_map.add(instance)
+        self._cache_instance(instance)
         return instance
 
     def execute(self, sql: str, params: Iterable[Any] | None = None):
@@ -220,6 +230,7 @@ class Session:
         instance._initial_state = dict(instance._field_values)
         self.identity_map.add(instance)
         self.hooks.fire("after_save", instance, session=self, created=True)
+        self._cache_instance(instance)
 
     def _persist_dirty(self, instance: Model) -> None:
         self.hooks.fire("before_validate", instance, session=self)
@@ -257,6 +268,7 @@ class Session:
         self.execute(sql, params)
         instance._initial_state = dict(instance._field_values)
         self.hooks.fire("after_save", instance, session=self, created=False)
+        self._cache_instance(instance)
 
     def _persist_deleted(self, instance: Model) -> None:
         pk_field = instance._meta.primary_key
@@ -272,6 +284,7 @@ class Session:
         self.execute(sql, (pk_value,))
         self.identity_map.remove(instance)
         self.hooks.fire("after_delete", instance, session=self)
+        self._invalidate_cache(instance)
 
     @staticmethod
     def _redact(params: Iterable[Any]) -> list[Any]:
@@ -282,3 +295,21 @@ class Session:
             else:
                 redacted.append(value)
         return redacted
+
+    def _cache_instance(self, instance: Model) -> None:
+        pk_field = instance._meta.primary_key
+        if pk_field is None:
+            return
+        pk_value = getattr(instance, pk_field.name, None)
+        if pk_value is None:
+            return
+        self.cache.set(instance.__class__, pk_value, instance.to_dict())
+
+    def _invalidate_cache(self, instance: Model) -> None:
+        pk_field = instance._meta.primary_key
+        if pk_field is None:
+            return
+        pk_value = getattr(instance, pk_field.name, None)
+        if pk_value is None:
+            return
+        self.cache.delete(instance.__class__, pk_value)
