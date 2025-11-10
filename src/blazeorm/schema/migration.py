@@ -10,12 +10,16 @@ from typing import Iterable, List, Sequence
 
 from ..adapters.base import DatabaseAdapter
 from ..dialects.base import Dialect
+from ..security.migrations import confirm_destructive_operation
 from .builder import SchemaBuilder
 
 
 @dataclass
 class MigrationOperation:
     sql: str
+    destructive: bool = False
+    force: bool = False
+    description: str | None = None
 
 
 class MigrationEngine:
@@ -56,6 +60,8 @@ class MigrationEngine:
     def apply(self, app: str, name: str, operations: Sequence[MigrationOperation]) -> None:
         with self._transaction():
             for op in operations:
+                if op.destructive:
+                    confirm_destructive_operation(op.description or op.sql, force=op.force)
                 self.adapter.execute(op.sql)
             self._record_migration(app, name)
 
