@@ -15,6 +15,7 @@ from .core.fields import (
     StringField,
 )  # noqa: F401
 from .core.relations import ForeignKey, ManyToManyField, OneToOneField  # noqa: F401
+from .cache import InMemoryCache, NoOpCache  # noqa: F401
 from .hooks import hooks  # noqa: F401
 from .persistence import Session  # noqa: F401
 from .query import Q, QuerySet  # noqa: F401
@@ -33,6 +34,8 @@ __all__ = [
     "ForeignKey",
     "OneToOneField",
     "ManyToManyField",
+    "InMemoryCache",
+    "NoOpCache",
     "ModelConfigurationError",
     "Session",
     "QuerySet",
