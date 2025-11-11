@@ -33,3 +33,26 @@ BlazeORM enforces parameterized queries and integrates DSN utilities across adap
 
 - All adapters validate placeholder counts before dispatching SQL and ensure parameterized execution.
 - Logged parameters are redacted when they appear to contain secrets (e.g., strings including `password`).
+
+## Example Blog App
+
+Explore BlazeORM end-to-end via the sample blog packaged under `examples/blog_app`:
+
+1. Bootstrap and seed the database programmatically:
+
+   ```python
+   from examples.blog_app import bootstrap_session, seed_sample_data, fetch_recent_posts
+
+   session = bootstrap_session("sqlite:///blog_example.db")
+   seed_sample_data(session)
+   print(fetch_recent_posts(session))
+   session.close()
+   ```
+
+2. Or run the ready-made demo script:
+
+   ```bash
+   python -m examples.blog_app.demo
+   ```
+
+The example uses the migration engine, sessions, caching/identity map, and secure DSN handling to provide a concise reference implementation you can adapt for your own applications.
