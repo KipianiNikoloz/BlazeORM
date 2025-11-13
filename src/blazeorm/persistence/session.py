@@ -11,7 +11,7 @@ from ..adapters.base import ConnectionConfig, DatabaseAdapter
 from ..core.model import Model
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
-from ..utils import get_logger, time_call
+from ..utils import PerformanceTracker, get_logger, time_call
 from ..cache import CacheBackend, NoOpCache
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
@@ -35,6 +35,7 @@ class Session:
         dsn: str | None = None,
         autocommit: bool = False,
         cache_backend: Optional[CacheBackend] = None,
+        performance_threshold: int = 5,
     ) -> None:
         self.adapter = adapter
         self.autocommit = autocommit
@@ -53,6 +54,9 @@ class Session:
 
         self.hooks = hooks
         self.logger = get_logger("persistence.session")
+        self.performance = PerformanceTracker(
+            self.logger, n_plus_one_threshold=performance_threshold
+        )
         self.adapter.connect(self.connection_config)
 
     # ------------------------------------------------------------------ #
@@ -94,6 +98,7 @@ class Session:
         self.adapter.close()
         self.identity_map.clear()
         self._uow_snapshots.clear()
+        self.performance.reset()
 
     # ------------------------------------------------------------------ #
     # Registration
@@ -163,8 +168,27 @@ class Session:
 
     def execute(self, sql: str, params: Iterable[Any] | None = None):
         param_list = list(params or [])
-        with time_call("session.execute", self.logger, sql=sql, params=self._redact(param_list), threshold_ms=200):
+        redacted = self._redact(param_list)
+
+        def _record(elapsed_ms: float) -> None:
+            self.performance.record(sql, redacted, elapsed_ms)
+
+        with time_call(
+            "session.execute",
+            self.logger,
+            sql=sql,
+            params=redacted,
+            threshold_ms=200,
+            on_complete=_record,
+        ):
             return self.adapter.execute(sql, param_list)
+
+    def query_stats(self) -> list[dict[str, object]]:
+        """
+        Return collected performance statistics for the current session.
+        """
+
+        return self.performance.summary()
 
     # ------------------------------------------------------------------ #
     @contextmanager
