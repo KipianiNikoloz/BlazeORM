@@ -56,3 +56,9 @@ Explore BlazeORM end-to-end via the sample blog packaged under `examples/blog_ap
    ```
 
 The example uses the migration engine, sessions, caching/identity map, and secure DSN handling to provide a concise reference implementation you can adapt for your own applications.
+
+## Performance Monitoring & N+1 Detection
+
+- Every `Session.execute` call is timed with structured logs and summarized through the new performance tracker (`Session.query_stats()`).
+- Potential N+1 patterns are detected automatically: if the same SQL runs repeatedly with different parameters (default threshold: 5 executions), BlazeORM emits a warning from `blazeorm.persistence.session`.
+- Configure sensitivity by passing `performance_threshold=` when constructing a session, or inspect collected metrics to spot hotspots programmatically.

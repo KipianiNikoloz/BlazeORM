@@ -6,7 +6,7 @@ import logging
 import time
 import uuid
 from contextvars import ContextVar
-from typing import Any, Iterable, Mapping, MutableMapping, Optional
+from typing import Any, Callable, Iterable, Mapping, MutableMapping, Optional
 
 _correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
@@ -49,7 +49,15 @@ def get_correlation_id() -> str:
     return cid
 
 
-def time_call(name: str, logger: logging.Logger, *, sql: str | None = None, params: Iterable[Any] | None = None, threshold_ms: int = 100):
+def time_call(
+    name: str,
+    logger: logging.Logger,
+    *,
+    sql: str | None = None,
+    params: Iterable[Any] | None = None,
+    threshold_ms: int = 100,
+    on_complete: Optional[Callable[[float], None]] = None,
+):
     start = time.monotonic()
 
     class Timer:
@@ -61,5 +69,7 @@ def time_call(name: str, logger: logging.Logger, *, sql: str | None = None, para
             level = logging.WARNING if elapsed_ms >= threshold_ms else logging.DEBUG
             extra = {"sql": sql, "params": params, "elapsed_ms": elapsed_ms}
             logger.log(level, "%s took %.2fms", name, elapsed_ms, extra=extra)
+            if on_complete and exc_type is None:
+                on_complete(elapsed_ms)
 
     return Timer()
