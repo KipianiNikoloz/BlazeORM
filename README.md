@@ -57,6 +57,22 @@ Explore BlazeORM end-to-end via the sample blog packaged under `examples/blog_ap
 
 The example uses the migration engine, sessions, caching/identity map, and secure DSN handling to provide a concise reference implementation you can adapt for your own applications.
 
+## Database Adapters
+
+- **SQLite**: Uses the stdlib `sqlite3` module (default). Ideal for local development or small deployments.
+- **PostgreSQL**: Provided via `psycopg`. Instantiate sessions with `PostgresAdapter`:
+
+  ```python
+  from blazeorm.adapters import PostgresAdapter, ConnectionConfig
+  from blazeorm.persistence import Session
+
+  adapter = PostgresAdapter()
+  config = ConnectionConfig.from_dsn("postgresql://user:secret@localhost:5432/dbname")
+  session = Session(adapter, connection_config=config)
+  ```
+
+Both adapters emit structured logs, enforce parameter validation, and plug into the performance tracker for N+1 detection.
+
 ## Performance Monitoring & N+1 Detection
 
 - Every `Session.execute` call is timed with structured logs and summarized through the new performance tracker (`Session.query_stats()`).
