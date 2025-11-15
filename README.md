@@ -60,18 +60,9 @@ The example uses the migration engine, sessions, caching/identity map, and secur
 ## Database Adapters
 
 - **SQLite**: Uses the stdlib `sqlite3` module (default). Ideal for local development or small deployments.
-- **PostgreSQL**: Provided via `psycopg`. Instantiate sessions with `PostgresAdapter`:
+- **PostgreSQL**: Provided via `psycopg`. Instantiate sessions with `PostgresAdapter` and `ConnectionConfig.from_dsn`.
+- **MySQL**: Provided via `PyMySQL` or `mysqlclient`. Instantiate sessions with `MySQLAdapter` and `ConnectionConfig.from_dsn`.
 
-  ```python
-  from blazeorm.adapters import PostgresAdapter, ConnectionConfig
-  from blazeorm.persistence import Session
-
-  adapter = PostgresAdapter()
-  config = ConnectionConfig.from_dsn("postgresql://user:secret@localhost:5432/dbname")
-  session = Session(adapter, connection_config=config)
-  ```
-
-Both adapters emit structured logs, enforce parameter validation, and plug into the performance tracker for N+1 detection.
 
 ## Performance Monitoring & N+1 Detection
 
