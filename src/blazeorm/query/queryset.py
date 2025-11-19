@@ -13,6 +13,7 @@ from .expressions import Q
 
 if TYPE_CHECKING:
     from ..core.model import Model
+    from ..persistence.session import Session
 
 
 class QuerySet:
@@ -32,6 +33,7 @@ class QuerySet:
         offset: Optional[int] = None,
         select_related: Tuple[str, ...] = (),
         prefetch_related: Tuple[str, ...] = (),
+        session: "Session | None" = None,
     ) -> None:
         self.model = model
         self.dialect = dialect or SQLiteDialect()
@@ -41,6 +43,7 @@ class QuerySet:
         self._offset = offset
         self._select_related = select_related
         self._prefetch_related = prefetch_related
+        self._session = session
 
     # Public API --------------------------------------------------------
     def filter(self, **lookups: Any) -> "QuerySet":
@@ -87,7 +90,14 @@ class QuerySet:
 
     # Iteration placeholder (will integrate with persistence later)
     def __iter__(self) -> Iterable["Model"]:
-        raise NotImplementedError("QuerySet iteration will be provided by persistence layer.")
+        if self._session is None:
+            raise RuntimeError("QuerySet iteration requires a bound Session. Use Session.query(model).")
+        sql, params = self.to_sql()
+        cursor = self._session.execute(sql, params)
+        rows = cursor.fetchall()
+        for row in rows:
+            data = self._row_to_dict(cursor, row)
+            yield self._session._materialize(self.model, data)
 
     # Internal helpers --------------------------------------------------
     def _add_q(self, q_object: Q) -> Q:
@@ -105,8 +115,18 @@ class QuerySet:
             "offset": overrides.get("offset", self._offset),
             "select_related": overrides.get("select_related", self._select_related),
             "prefetch_related": overrides.get("prefetch_related", self._prefetch_related),
+            "session": overrides.get("session", self._session),
         }
         return QuerySet(**params)
+
+    @staticmethod
+    def _row_to_dict(cursor, row) -> dict[str, Any]:
+        if hasattr(row, "keys"):
+            return dict(row)
+        if hasattr(cursor, "description"):
+            columns = [col[0] for col in cursor.description]
+            return {col: row[idx] for idx, col in enumerate(columns)}
+        raise ValueError("Unable to map database row to dictionary.")
 
 
 class QueryManager:

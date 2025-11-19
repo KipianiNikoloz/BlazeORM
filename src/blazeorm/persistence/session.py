@@ -156,15 +156,8 @@ class Session:
         row = cursor.fetchone()
         if not row:
             return None
-        data = dict(row)
-        instance = model(**data)
-        # Ensure primary key attribute is set if not in data (should be)
-        if model._meta.primary_key and model._meta.primary_key.name not in data:
-            setattr(instance, model._meta.primary_key.name, row[model._meta.primary_key.name])
-        instance._initial_state = dict(instance._field_values)
-        self.identity_map.add(instance)
-        self._cache_instance(instance)
-        return instance
+        data = self._row_to_dict(cursor, row)
+        return self._materialize(model, data)
 
     def execute(self, sql: str, params: Iterable[Any] | None = None):
         param_list = list(params or [])
@@ -182,6 +175,30 @@ class Session:
             on_complete=_record,
         ):
             return self.adapter.execute(sql, param_list)
+
+    def query(self, model: Type[Model]):
+        """
+        Return a QuerySet bound to this session for execution.
+        """
+
+        from ..query import QuerySet
+
+        return QuerySet(model, dialect=self.dialect, session=self)
+
+    def _materialize(self, model: Type[Model], data: dict[str, Any]) -> Model:
+        pk_field = model._meta.primary_key
+        pk_value = data.get(pk_field.name) if pk_field else None
+        if pk_field and pk_value is not None:
+            cached = self.identity_map.get(model, pk_value)
+            if cached:
+                return cached
+        instance = model(**data)
+        if pk_field and pk_value is not None and getattr(instance, pk_field.name, None) is None:
+            setattr(instance, pk_field.name, pk_value)
+        instance._initial_state = dict(instance._field_values)
+        self.identity_map.add(instance)
+        self._cache_instance(instance)
+        return instance
 
     def query_stats(self) -> list[dict[str, object]]:
         """
@@ -342,3 +359,12 @@ class Session:
         if pk_value is None:
             return
         self.cache.delete(instance.__class__, pk_value)
+
+    @staticmethod
+    def _row_to_dict(cursor, row) -> dict[str, Any]:
+        if hasattr(row, "keys"):
+            return dict(row)
+        if hasattr(cursor, "description"):
+            columns = [col[0] for col in cursor.description]
+            return {col: row[idx] for idx, col in enumerate(columns)}
+        raise ValueError("Unable to map database row to dictionary.")
