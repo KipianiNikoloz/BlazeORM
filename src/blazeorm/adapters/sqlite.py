@@ -96,6 +96,8 @@ class SQLiteAdapter(DatabaseAdapter):
     # ------------------------------------------------------------------ #
     def begin(self) -> None:
         connection = self._ensure_connection()
+        if hasattr(connection, "in_transaction") and connection.in_transaction:
+            return
         connection.execute("BEGIN")
 
     def commit(self) -> None:

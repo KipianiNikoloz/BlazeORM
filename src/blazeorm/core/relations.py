@@ -41,6 +41,14 @@ class RelatedField(Field):
     def contribute_to_class(self, model: Type, name: str) -> None:
         super().contribute_to_class(model, name)
 
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        cache = getattr(instance, "_related_cache", {})
+        if self.name in cache:
+            return cache[self.name]
+        return super().__get__(instance, owner)
+
     def resolve_model(self, model: Type) -> None:
         self.remote_model = model
 
@@ -61,7 +69,12 @@ class ForeignKey(RelatedField):
 
     def __set__(self, instance, value):
         if hasattr(value, "pk"):
+            if hasattr(instance, "_related_cache"):
+                instance._related_cache[self.name] = value
             value = value.pk
+        else:
+            if hasattr(instance, "_related_cache"):
+                instance._related_cache.pop(self.name, None)
         super().__set__(instance, value)
 
 
