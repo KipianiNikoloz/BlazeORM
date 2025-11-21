@@ -5,6 +5,7 @@ Session management coordinating adapters, unit of work, and identity map.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
@@ -20,6 +21,9 @@ from .unit_of_work import UnitOfWork
 
 if TYPE_CHECKING:
     from ..hooks import HookDispatcher
+
+
+_current_session: ContextVar["Session | None"] = ContextVar("blazeorm_current_session", default=None)
 
 
 class Session:
@@ -57,6 +61,7 @@ class Session:
         self.performance = PerformanceTracker(
             self.logger, n_plus_one_threshold=performance_threshold
         )
+        self._ctx_token = None
         self.adapter.connect(self.connection_config)
 
     # ------------------------------------------------------------------ #
@@ -64,6 +69,7 @@ class Session:
     # ------------------------------------------------------------------ #
     def __enter__(self) -> "Session":
         self.begin()
+        self._ctx_token = _current_session.set(self)
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -73,6 +79,9 @@ class Session:
             else:
                 self.commit()
         finally:
+            if self._ctx_token:
+                _current_session.reset(self._ctx_token)
+                self._ctx_token = None
             self.close()
 
     # ------------------------------------------------------------------ #
@@ -259,7 +268,8 @@ class Session:
         for field in instance._meta.get_fields():
             if field.primary_key and getattr(instance, field.name, None) is None:
                 continue
-            value = getattr(instance, field.name, None)
+            raw_value = getattr(instance, field.name, None)
+            value = self._normalize_db_value(field, raw_value)
             columns.append(self.dialect.quote_identifier(field.db_column or field.name))
             params.append(value)
 
@@ -295,7 +305,8 @@ class Session:
         for field in instance._meta.get_fields():
             if field.primary_key:
                 continue
-            value = getattr(instance, field.name)
+            raw_value = getattr(instance, field.name)
+            value = self._normalize_db_value(field, raw_value)
             initial_value = instance._initial_state.get(field.name)
             if value != initial_value:
                 set_clauses.append(
@@ -368,3 +379,20 @@ class Session:
             columns = [col[0] for col in cursor.description]
             return {col: row[idx] for idx, col in enumerate(columns)}
         raise ValueError("Unable to map database row to dictionary.")
+
+    @staticmethod
+    def current() -> "Session | None":
+        """
+        Return the current session bound in the execution context, if any.
+        """
+
+        return _current_session.get()
+
+    @staticmethod
+    def _normalize_db_value(field, value: Any) -> Any:
+        from ..core.relations import RelatedField
+
+        if isinstance(field, RelatedField) and value is not None:
+            if hasattr(value, "pk"):
+                return value.pk
+        return value

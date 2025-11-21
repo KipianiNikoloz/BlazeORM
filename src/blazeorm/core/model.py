@@ -141,6 +141,7 @@ class Model(metaclass=ModelMeta):
     def __init__(self, **kwargs: Any) -> None:
         self._field_values: Dict[str, Any] = {}
         self._initial_state: Dict[str, Any] = {}
+        self._related_cache: Dict[str, Any] = {}
 
         for field in self._meta.get_fields():
             if field.primary_key and field.has_default is False and field.name not in kwargs:
