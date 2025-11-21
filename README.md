@@ -63,6 +63,20 @@ The example uses the migration engine, sessions, caching/identity map, and secur
 - **PostgreSQL**: Provided via `psycopg`. Instantiate sessions with `PostgresAdapter` and `ConnectionConfig.from_dsn`.
 - **MySQL**: Provided via `PyMySQL` or `mysqlclient`. Instantiate sessions with `MySQLAdapter` and `ConnectionConfig.from_dsn`.
 
+## Query Execution
+
+Bind queries to a session to fetch model instances while reusing the identity map and cache:
+
+```python
+from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
+from blazeorm.persistence import Session
+from mymodels import User
+
+session = Session(SQLiteAdapter(), connection_config=ConnectionConfig.from_dsn("sqlite:///app.db"))
+for user in session.query(User).filter(name="Alice").order_by("id"):
+    print(user.id, user.name)
+```
+
 
 ## Performance Monitoring & N+1 Detection
 
