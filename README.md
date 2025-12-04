@@ -1,90 +1,95 @@
 # BlazeORM
 
-Simple and lightweight ORM built in Python utilising SQLite.
+Modular Python ORM with eager loading, migrations, security hardening, caching, performance tracking, and multi-database adapters (SQLite, PostgreSQL, MySQL).
 
-## Logging
+## Elevator Pitch
+- Declarative models, typed fields, and relationships (FK/O2O/M2M) with forward/reverse accessors.
+- Query builder + execution with `select_related` / `prefetch_related` (nested, m2m-aware) to eliminate N+1 queries.
+- Persistence layer with transactions, unit-of-work, identity map, caching, hooks, and performance tracker.
+- Strategy-based dialects and adapters with DSN parsing, redaction, parameter validation, and structured logging.
+- Schema builder + migration engine with destructive-operation safeguards.
+- Example app and comprehensive tests to guide usage.
 
-BlazeORM ships with structured logging helpers. Enable them at startup:
+## Architecture
+- `src/blazeorm/core`: Models, fields, relations, registry, validation hooks.
+- `src/blazeorm/query`: `Q` expressions, SQL compiler, `QuerySet`, managers, eager loading.
+- `src/blazeorm/persistence`: `Session`, identity map, UoW, transactions/savepoints, caching, hooks, m2m helpers.
+- `src/blazeorm/adapters`: SQLite/Postgres/MySQL adapters, `ConnectionConfig` (DSN/env parsing, redaction).
+- `src/blazeorm/dialects`: Quoting, limit/offset, placeholders per backend.
+- `src/blazeorm/schema`: Schema builder, migration engine, destructive confirmations.
+- `src/blazeorm/security`: DSN utilities and migration safety helpers.
+- `src/blazeorm/cache`, `src/blazeorm/hooks`, `src/blazeorm/utils`: Caching backends, lifecycle hooks, logging, performance tracker.
+- `examples/`: Blog app showing migrations, sessions, seeding, and querying.
+- Each subpackage has a README for deeper details.
 
+## Quickstart
 ```python
-from blazeorm import configure_logging
-
-configure_logging()
-```
-
-Every query executed through the session or adapters emits timing information with a correlation ID so you can trace slow statements quickly. Use `blazeorm.get_logger` for custom components to participate in the same logging pipeline.
-
-## Security
-
-BlazeORM enforces parameterized queries and integrates DSN utilities across adapters, sessions, and schema tooling.
-
-### DSN handling
-
-- Build safe connection configs with `ConnectionConfig.from_dsn("postgres://...")` or `ConnectionConfig.from_env("DATABASE_URL")`. DSN credentials are automatically redacted in logs.
-- Sessions can now be created directly from a DSN: `Session(SQLiteAdapter(), dsn="sqlite:///example.db")`.
-- Use `blazeorm.security.dsns.parse_dsn` for manual parsing needs or redaction helpers.
-
-### Migration safety
-
-- Generating destructive schema statements (for example, `SchemaBuilder.drop_table_sql`) emits warnings.
-- `MigrationEngine` logs every destructive operation and requires `force=True` to proceed, delegating to `confirm_destructive_operation`.
-
-### Secure parameter handling
-
-- All adapters validate placeholder counts before dispatching SQL and ensure parameterized execution.
-- Logged parameters are redacted when they appear to contain secrets (e.g., strings including `password`).
-
-## Example Blog App
-
-Explore BlazeORM end-to-end via the sample blog packaged under `examples/blog_app`:
-
-1. Bootstrap and seed the database programmatically:
-
-   ```python
-   from examples.blog_app import bootstrap_session, seed_sample_data, fetch_recent_posts
-
-   session = bootstrap_session("sqlite:///blog_example.db")
-   seed_sample_data(session)
-   print(fetch_recent_posts(session))
-   session.close()
-   ```
-
-2. Or run the ready-made demo script:
-
-   ```bash
-   python -m examples.blog_app.demo
-   ```
-
-The example uses the migration engine, sessions, caching/identity map, and secure DSN handling to provide a concise reference implementation you can adapt for your own applications.
-
-## Database Adapters
-
-- **SQLite**: Uses the stdlib `sqlite3` module (default). Ideal for local development or small deployments.
-- **PostgreSQL**: Provided via `psycopg`. Instantiate sessions with `PostgresAdapter` and `ConnectionConfig.from_dsn`.
-- **MySQL**: Provided via `PyMySQL` or `mysqlclient`. Instantiate sessions with `MySQLAdapter` and `ConnectionConfig.from_dsn`.
-
-## Query Execution
-
-Bind queries to a session to fetch model instances while reusing the identity map and cache:
-
-```python
-from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
+from blazeorm.adapters import SQLiteAdapter, ConnectionConfig
 from blazeorm.persistence import Session
 from mymodels import User
 
 session = Session(SQLiteAdapter(), connection_config=ConnectionConfig.from_dsn("sqlite:///app.db"))
-for user in session.query(User).filter(name="Alice").order_by("id"):
-    print(user.id, user.name)
+with session:
+    users = list(session.query(User).prefetch_related("groups").order_by("id"))
+    for u in users:
+        print(u.id, u.name, [g.name for g in u.groups])
 ```
 
-## Relationships & Eager Loading
+### Defining Models
+```python
+from blazeorm.core import Model, StringField, ForeignKey, ManyToManyField
 
-- Supports `ForeignKey`, `OneToOneField`, and `ManyToManyField` with forward and reverse accessors.
-- Many-to-many managers expose `add`, `remove`, and `clear` helpers, and session/model sugar (`Session.add_m2m` / `m2m_add` etc.) invalidates relation caches.
-- Use `select_related("author")` for join-based eager loading and `prefetch_related("categories", "author__articles")` for bulk queries across nested paths, including m2m join tables.
-- When no related rows exist, BlazeORM returns empty lists instead of raising, keeping iteration safe for reverse and m2m relations.
-## Performance Monitoring & N+1 Detection
+class Author(Model):
+    name = StringField(nullable=False)
 
-- Every `Session.execute` call is timed with structured logs and summarized through the new performance tracker (`Session.query_stats()`).
-- Potential N+1 patterns are detected automatically: if the same SQL runs repeatedly with different parameters (default threshold: 5 executions), BlazeORM emits a warning from `blazeorm.persistence.session`.
-- Configure sensitivity by passing `performance_threshold=` when constructing a session, or inspect collected metrics to spot hotspots programmatically.
+class Category(Model):
+    name = StringField(nullable=False)
+
+class Article(Model):
+    title = StringField()
+    author = ForeignKey(Author, related_name="articles")
+    categories = ManyToManyField(Category, related_name="articles")
+```
+
+### Schema & Migrations
+```python
+from blazeorm.schema import SchemaBuilder, MigrationEngine, MigrationOperation
+from blazeorm.dialects import SQLiteDialect
+
+builder = SchemaBuilder(SQLiteDialect())
+ops = [MigrationOperation(sql=builder.create_table_sql(Article))]
+ops += [MigrationOperation(sql=stmt) for stmt in builder.create_many_to_many_sql(Article)]
+engine = MigrationEngine(session.adapter, session.dialect)
+engine.apply("blog", "0001", ops)
+```
+
+### Eager Loading
+- `select_related("author")` for join-based eager loading of FK/O2O.
+- `prefetch_related("categories", "author__articles")` for bulk loading m2m and nested relations.
+- Empty relations return empty lists; identity map/caches are reused during iteration.
+
+### Transactions, Hooks, and M2M Helpers
+- Use `with session:` or `session.transaction()` for transactional scopes.
+- Hooks: `before/after_validate`, `before/after_save`, `before/after_delete`, `after_commit` fired by `Session`.
+- Many-to-many helpers: `Session.add_m2m/remove_m2m/clear_m2m` and `Model.m2m_add/remove/clear` manage join rows and cache invalidation.
+
+### Security
+- DSN parsing/redaction via `ConnectionConfig.from_dsn/from_env`; credentials are redacted in logs.
+- Adapters validate placeholder counts; parameters are redacted when they appear sensitive.
+- Migration engine logs destructive ops; `SchemaBuilder.drop_table_sql` warns loudly.
+
+### Performance & Observability
+- Structured logging with correlation IDs via `blazeorm.utils.logging.configure_logging`.
+- `PerformanceTracker` records SQL timings and warns on N+1 patterns; inspect with `Session.query_stats()`.
+
+### Example Blog App
+- Located in `examples/blog_app`.
+- Run `python -m examples.blog_app.demo` or import `bootstrap_session` / `seed_sample_data`.
+
+## Testing
+- Run the suite: `python -m pytest`
+- Tests cover adapters, dialects, core models/relations, query compilation/execution, persistence, schema, security, caching, hooks, performance, and examples.
+
+## Further Reading
+- `src/blazeorm/README.md` for package overview.
+- Module READMEs under each subpackage for focused details (core, query, persistence, adapters, schema, security, cache, hooks, utils, examples).
