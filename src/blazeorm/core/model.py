@@ -207,6 +207,31 @@ class Model(metaclass=ModelMeta):
         from ..hooks import hooks
 
         hooks.register(event, handler, model=cls)
+
+    # Many-to-many sugar ------------------------------------------------
+    def m2m_add(self, field_name: str, *related: "Model", session=None) -> None:
+        from ..persistence.session import Session
+
+        session = session or Session.current()
+        if session is None:
+            raise RuntimeError("m2m_add requires an active Session.")
+        session.add_m2m(self, field_name, *related)
+
+    def m2m_remove(self, field_name: str, *related: "Model", session=None) -> None:
+        from ..persistence.session import Session
+
+        session = session or Session.current()
+        if session is None:
+            raise RuntimeError("m2m_remove requires an active Session.")
+        session.remove_m2m(self, field_name, *related)
+
+    def m2m_clear(self, field_name: str, session=None) -> None:
+        from ..persistence.session import Session
+
+        session = session or Session.current()
+        if session is None:
+            raise RuntimeError("m2m_clear requires an active Session.")
+        session.clear_m2m(self, field_name)
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

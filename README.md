@@ -77,7 +77,12 @@ for user in session.query(User).filter(name="Alice").order_by("id"):
     print(user.id, user.name)
 ```
 
+## Relationships & Eager Loading
 
+- Supports `ForeignKey`, `OneToOneField`, and `ManyToManyField` with forward and reverse accessors.
+- Many-to-many managers expose `add`, `remove`, and `clear` helpers, and session/model sugar (`Session.add_m2m` / `m2m_add` etc.) invalidates relation caches.
+- Use `select_related("author")` for join-based eager loading and `prefetch_related("categories", "author__articles")` for bulk queries across nested paths, including m2m join tables.
+- When no related rows exist, BlazeORM returns empty lists instead of raising, keeping iteration safe for reverse and m2m relations.
 ## Performance Monitoring & N+1 Detection
 
 - Every `Session.execute` call is timed with structured logs and summarized through the new performance tracker (`Session.query_stats()`).
