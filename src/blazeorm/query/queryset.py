@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple
 from ..dialects.sqlite import SQLiteDialect
 from .compiler import SQLCompiler
 from .expressions import Q
-from ..core.relations import RelatedField, relation_registry
+from ..core.relations import ManyToManyField, RelatedField, relation_registry
 
 
 if TYPE_CHECKING:
@@ -180,11 +180,36 @@ class QuerySet:
         if not instances:
             return
         for relation in self._prefetch_related:
+            if "__" in relation:
+                head, tail = relation.split("__", 1)
+                self._prefetch_relation(session, instances, head)
+                children: list[Any] = []
+                for obj in instances:
+                    value = getattr(obj, head, None)
+                    if value is None:
+                        continue
+                    if isinstance(value, list):
+                        children.extend(value)
+                    else:
+                        children.append(value)
+                if children:
+                    child_model = children[0].__class__
+                    QuerySet(child_model, session=session, prefetch_related=(tail,))._prefetch_related_data(
+                        session, children
+                    )
+                continue
             self._prefetch_relation(session, instances, relation)
 
     def _prefetch_relation(self, session: "Session", instances: list["Model"], relation: str) -> None:
         # Forward relation on the model
         if self._is_forward_relation(self.model, relation):
+            field = self.model._meta.get_field(relation)
+            if isinstance(field, ManyToManyField):
+                related_model = field.remote_model
+                if related_model is None:
+                    return
+                self._prefetch_many_to_many(session, instances, related_model, field, relation)
+                return
             self._prefetch_forward(session, instances, relation)
             return
         # Reverse relation via related_name
@@ -192,6 +217,9 @@ class QuerySet:
         if target is None:
             raise ValueError(f"Cannot prefetch relation '{relation}' for model '{self.model.__name__}'")
         related_model, field = target
+        if isinstance(field, ManyToManyField):
+            self._prefetch_many_to_many(session, instances, related_model, field, relation)
+            return
         pk_field = self.model._meta.primary_key
         if pk_field is None:
             return
@@ -249,6 +277,66 @@ class QuerySet:
             fk_val = getattr(obj, field.name)
             setattr(obj, relation, related_map.get(fk_val))
 
+    def _prefetch_many_to_many(
+        self,
+        session: "Session",
+        instances: list["Model"],
+        related_model: type["Model"],
+        field: "ManyToManyField",
+        relation: str,
+    ) -> None:
+        pk_field = self.model._meta.primary_key
+        if pk_field is None:
+            return
+        parent_pks = [getattr(obj, pk_field.name) for obj in instances if getattr(obj, pk_field.name) is not None]
+        if not parent_pks:
+            return
+        through = session.dialect.format_table(field.through_table(field.model))
+        # parent is the current model when relation is forward; reverse swaps columns
+        parent_is_remote = relation == (field.related_name or "")
+        parent_col_raw = field.right_column(field.model) if parent_is_remote else field.left_column(field.model)
+        related_col_raw = field.left_column(field.model) if parent_is_remote else field.right_column(field.model)
+        parent_col = session.dialect.quote_identifier(parent_col_raw)
+        related_col = session.dialect.quote_identifier(related_col_raw)
+        placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in parent_pks)
+        junction_sql = (
+            f"SELECT {parent_col} AS parent_id, {related_col} AS related_id FROM {through} WHERE {parent_col} IN ({placeholders})"
+        )
+        cursor = session.execute(junction_sql, parent_pks)
+        rows = cursor.fetchall()
+        if not rows:
+            for obj in instances:
+                obj._related_cache[relation] = []
+            return
+        related_ids = [row["related_id"] if hasattr(row, "keys") else row[1] for row in rows]
+        unique_related_ids = list(dict.fromkeys(related_ids))
+        placeholders_rel = ", ".join(session.dialect.parameter_placeholder() for _ in unique_related_ids)
+        table = session.dialect.format_table(related_model._meta.table_name)
+        select_list = ", ".join(session.dialect.quote_identifier(f.db_column or f.name) for f in related_model._meta.get_fields())
+        related_pk_field = related_model._meta.primary_key
+        related_pk_column = related_pk_field.db_column or related_pk_field.name if related_pk_field else "id"
+        related_cursor = session.execute(
+            f"SELECT {select_list} FROM {table} WHERE {session.dialect.quote_identifier(related_pk_column)} IN ({placeholders_rel})",
+            unique_related_ids,
+        )
+        related_rows = related_cursor.fetchall()
+        related_map: dict[Any, Any] = {}
+        for row in related_rows:
+            data = self._row_to_dict(related_cursor, row)
+            instance = session._materialize(related_model, data)
+            pk_val = data.get(related_pk_column)
+            related_map[pk_val] = instance
+
+        bucket: dict[Any, list[Any]] = {pk: [] for pk in parent_pks}
+        for row in rows:
+            parent_id = row["parent_id"] if hasattr(row, "keys") else row[0]
+            related_id = row["related_id"] if hasattr(row, "keys") else row[1]
+            bucket.setdefault(parent_id, []).append(related_map.get(related_id))
+
+        for obj in instances:
+            parent_pk = getattr(obj, pk_field.name)
+            obj._related_cache[relation] = [rel for rel in bucket.get(parent_pk, []) if rel is not None]
+
     def _is_forward_relation(self, model: type["Model"], name: str) -> bool:
         try:
             field = model._meta.get_field(name)
@@ -265,7 +353,12 @@ class QuerySet:
             if accessor.field.remote_model is model:
                 return accessor.model, accessor.field
 
-        # Fallback: scan registry
+        # Check many-to-many reverse map
+        for candidate, field in relation_registry.m2m_reverse.get(model, []):
+            if (field.related_name or f"{candidate.__name__.lower()}_set") == related_name:
+                return candidate, field
+
+        # Fallback: scan registry for non-M2M relations
         for candidate in relation_registry.models.values():
             for field in candidate._meta.get_fields():
                 if not isinstance(field, RelatedField):
