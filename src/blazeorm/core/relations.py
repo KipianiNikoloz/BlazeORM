@@ -86,12 +86,176 @@ class OneToOneField(ForeignKey):
         super().__init__(to, related_name=related_name, **kwargs)
 
 
-class ManyToManyDescriptor:
-    def __init__(self, field: "ManyToManyField") -> None:
+class ManyToManyManager:
+    """
+    Manager for many-to-many relations supporting read and mutation helpers.
+    """
+
+    def __init__(self, field: "ManyToManyField", instance, source_model: Type, accessor_name: str) -> None:
         self.field = field
+        self.instance = instance
+        self.source_model = source_model
+        self.accessor_name = accessor_name
+        self.is_reverse = isinstance(instance, field.remote_model) if field.remote_model else False
+
+    def _session(self):
+        from ..persistence.session import Session
+
+        session = Session.current()
+        if session is None:
+            raise RuntimeError("Many-to-many access requires an active Session context.")
+        return session
+
+    def _through_table(self) -> str:
+        return self.field.through_table(self.field.model)
+
+    def _left_column(self) -> str:
+        # Column for the declaring model (field.model)
+        return self.field.left_column(self.field.model)
+
+    def _right_column(self) -> str:
+        # Column for the related model (remote_model)
+        return self.field.right_column(self.field.model)
+
+    def _related_pk_column(self, related_model) -> str:
+        pk_field = related_model._meta.primary_key
+        if pk_field is None:
+            return "id"
+        return pk_field.db_column or pk_field.name
+
+    def _normalize_targets(self, objs) -> list[Any]:
+        related_model = self.field.model if self.is_reverse else self.field.remote_model
+        if related_model is None:
+            raise RuntimeError(f"Related model for field '{self.field.name}' is not resolved.")
+        pks: list[Any] = []
+        for obj in objs:
+            if hasattr(obj, "pk"):
+                pk_val = obj.pk
+            else:
+                pk_val = obj
+            if pk_val is None:
+                raise ValueError("Related instances must be saved before association.")
+            pks.append(pk_val)
+        return pks
+
+    def all(self):
+        session = self._session()
+        related_model = self.field.model if self.is_reverse else self.field.remote_model
+        if related_model is None:
+            raise RuntimeError(f"Related model for field '{self.field.name}' is not resolved.")
+        through_table = session.dialect.format_table(self._through_table())
+        parent_col = self._right_column() if self.is_reverse else self._left_column()
+        related_col = self._left_column() if self.is_reverse else self._right_column()
+        parent_quoted = session.dialect.quote_identifier(parent_col)
+        related_quoted = session.dialect.quote_identifier(related_col)
+        junction_sql = (
+            f"SELECT {related_quoted} FROM {through_table} WHERE {parent_quoted} = {session.dialect.parameter_placeholder()}"
+        )
+        cursor = session.execute(junction_sql, (self.instance.pk,))
+        related_ids = [row[0] for row in cursor.fetchall()]
+        if not related_ids:
+            self.instance._related_cache[self.accessor_name] = []
+            return []
+
+        placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in related_ids)
+        table = session.dialect.format_table(related_model._meta.table_name)
+        select_list = ", ".join(
+            session.dialect.quote_identifier(f.db_column or f.name) for f in related_model._meta.get_fields()
+        )
+        pk_column = session.dialect.quote_identifier(self._related_pk_column(related_model))
+        sql = f"SELECT {select_list} FROM {table} WHERE {pk_column} IN ({placeholders})"
+        cursor = session.execute(sql, related_ids)
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            data = session._row_to_dict(cursor, row)
+            results.append(session._materialize(related_model, data))
+        self.instance._related_cache[self.accessor_name] = results
+        return results
+
+    def add(self, *objs) -> None:
+        if self.instance.pk is None:
+            raise ValueError("Instance must be saved before adding many-to-many relations.")
+        session = self._session()
+        related_model = self.field.remote_model
+        if related_model is None:
+            raise RuntimeError(f"Related model for field '{self.field.name}' is not resolved.")
+        target_pks = self._normalize_targets(objs)
+        if not target_pks:
+            return
+        # Avoid duplicate inserts by fetching existing rows.
+        through = session.dialect.format_table(self._through_table())
+        parent_col = self._right_column() if self.is_reverse else self._left_column()
+        related_col = self._left_column() if self.is_reverse else self._right_column()
+        left_col = session.dialect.quote_identifier(parent_col)
+        right_col = session.dialect.quote_identifier(related_col)
+        existing_cursor = session.execute(
+            f"SELECT {right_col} FROM {through} WHERE {left_col} = {session.dialect.parameter_placeholder()}",
+            (self.instance.pk,),
+        )
+        existing = {row[0] for row in existing_cursor.fetchall()}
+        new_values = [pk for pk in target_pks if pk not in existing]
+        if not new_values:
+            return
+        insert_sql = (
+            f"INSERT INTO {through} ({left_col}, {right_col}) VALUES "
+            + ", ".join(f"({session.dialect.parameter_placeholder()}, {session.dialect.parameter_placeholder()})" for _ in new_values)
+        )
+        params: list[Any] = []
+        for pk in new_values:
+            # Order matches left_col (parent) then right_col (related)
+            params.extend([self.instance.pk, pk] if not self.is_reverse else [self.instance.pk, pk])
+        session.execute(insert_sql, params)
+        self.instance._related_cache.pop(self.accessor_name, None)
+
+    def remove(self, *objs) -> None:
+        if self.instance.pk is None:
+            return
+        session = self._session()
+        target_pks = self._normalize_targets(objs)
+        if not target_pks:
+            return
+        through = session.dialect.format_table(self._through_table())
+        parent_col = self._right_column() if self.is_reverse else self._left_column()
+        related_col = self._left_column() if self.is_reverse else self._right_column()
+        left_col = session.dialect.quote_identifier(parent_col)
+        right_col = session.dialect.quote_identifier(related_col)
+        placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in target_pks)
+        sql = (
+            f"DELETE FROM {through} WHERE {left_col} = {session.dialect.parameter_placeholder()} "
+            f"AND {right_col} IN ({placeholders})"
+        )
+        session.execute(sql, [self.instance.pk, *target_pks])
+        self.instance._related_cache.pop(self.accessor_name, None)
+
+    def clear(self) -> None:
+        if self.instance.pk is None:
+            return
+        session = self._session()
+        through = session.dialect.format_table(self._through_table())
+        parent_col = self._right_column() if self.is_reverse else self._left_column()
+        left_col = session.dialect.quote_identifier(parent_col)
+        sql = f"DELETE FROM {through} WHERE {left_col} = {session.dialect.parameter_placeholder()}"
+        session.execute(sql, (self.instance.pk,))
+        self.instance._related_cache[self.accessor_name] = []
+
+    def __iter__(self):
+        return iter(self.all())
+
+
+class ManyToManyDescriptor:
+    def __init__(self, field: "ManyToManyField", source_model: Optional[Type] = None, accessor_name: Optional[str] = None) -> None:
+        self.field = field
+        self.source_model = source_model or field.model
+        self.accessor_name = accessor_name or field.name
 
     def __get__(self, instance, owner):
-        raise NotImplementedError("Many-to-many relations are not implemented yet.")
+        if instance is None:
+            return self
+        cache = getattr(instance, "_related_cache", {})
+        if self.accessor_name in cache:
+            return cache[self.accessor_name]
+        return ManyToManyManager(self.field, instance, self.source_model, self.accessor_name)
 
 
 class ManyToManyField(RelatedField):
@@ -116,8 +280,33 @@ class ManyToManyField(RelatedField):
     def contribute_to_class(self, model: Type, name: str) -> None:
         self.name = name
         self.model = model
-        setattr(model, name, ManyToManyDescriptor(self))
+        setattr(model, name, ManyToManyDescriptor(self, accessor_name=name))
+        model._meta.many_to_many.append(self)
+        if self.db_table:
+            model._meta.m2m_through_tables[name] = self.db_table
 
+    def through_table(self, model: Type) -> str:
+        if self.db_table:
+            return self.db_table
+        return f"{model._meta.table_name}_{self.remote_table_name()}"
+
+    def remote_table_name(self) -> str:
+        remote = self.remote_model
+        if remote is None:
+            raise RuntimeError("Remote model not resolved for ManyToManyField.")
+        return remote._meta.table_name
+
+    def left_column(self, model: Type) -> str:
+        return f"{model._meta.table_name}_id"
+
+    def right_column(self, model: Type) -> str:
+        return f"{self.remote_table_name()}_id"
+
+    def remote_pk_column(self) -> str:
+        remote = self.remote_model
+        if remote is None or remote._meta.primary_key is None:
+            return "id"
+        return remote._meta.primary_key.db_column or remote._meta.primary_key.name
 
 class RelatedAccessor:
     def __init__(self, source_model: Type, field: RelatedField) -> None:
@@ -152,6 +341,8 @@ class RelationRegistry:
     def __init__(self) -> None:
         self.models: Dict[str, Type] = {}
         self.pending_fields: List[Tuple[Type, RelatedField]] = []
+        # Track many-to-many fields to support reverse lookups without installing descriptors.
+        self.m2m_reverse: Dict[Type, List[Tuple[Type, "ManyToManyField"]]] = defaultdict(list)
 
     def register_model(self, model: Type) -> None:
         label = self._label(model)
@@ -164,6 +355,8 @@ class RelationRegistry:
             self.pending_fields.append((model, field))
             return
         field.resolve_model(target)
+        if isinstance(field, ManyToManyField):
+            self.m2m_reverse[target].append((model, field))
         self._attach_reverse_accessor(model, field)
 
     def _resolve_pending(self) -> None:
@@ -174,6 +367,8 @@ class RelationRegistry:
                 unresolved.append((model, field))
                 continue
             field.resolve_model(target)
+            if isinstance(field, ManyToManyField):
+                self.m2m_reverse[target].append((model, field))
             self._attach_reverse_accessor(model, field)
         self.pending_fields = unresolved
 
@@ -190,13 +385,13 @@ class RelationRegistry:
         remote = field.remote_model
         if remote is None:
             return
-        if isinstance(field, ManyToManyField):
-            # ManyToMany reverse managers not implemented yet.
-            return
         related_name = field.related_name or f"{model.__name__.lower()}_set"
         if hasattr(remote, related_name):
             return
-        descriptor = RelatedAccessor(model, field)
+        if isinstance(field, ManyToManyField):
+            descriptor = ManyToManyDescriptor(field, source_model=remote, accessor_name=related_name)
+        else:
+            descriptor = RelatedAccessor(model, field)
         setattr(remote, related_name, descriptor)
 
 
