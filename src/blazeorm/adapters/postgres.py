@@ -24,6 +24,8 @@ def _load_driver():
 @dataclass(slots=True)
 class PostgresConnectionState:
     connection: Any
+    config: ConnectionConfig
+    driver: Any
 
 
 class PostgresAdapter(DatabaseAdapter):
@@ -56,18 +58,24 @@ class PostgresAdapter(DatabaseAdapter):
         if config.isolation_level:
             setattr(connection, "isolation_level", config.isolation_level)
 
-        self._state = PostgresConnectionState(connection)
+        self._state = PostgresConnectionState(connection, config, driver)
         return connection
 
     def close(self) -> None:
         if self._state:
-            self._state.connection.close()
-            self._state = None
+            try:
+                self._state.connection.close()
+            finally:
+                self._state = None
 
     def _ensure_connection(self):
         if not self._state:
             raise RuntimeError("PostgresAdapter is not connected.")
-        return self._state.connection
+        conn = self._state.connection
+        if getattr(conn, "closed", False):
+            self.logger.warning("PostgreSQL connection closed; reconnecting.")
+            conn = self.connect(self._state.config)
+        return conn
 
     def execute(self, sql: str, params: Sequence[Any] | None = None):
         connection = self._ensure_connection()
@@ -98,6 +106,8 @@ class PostgresAdapter(DatabaseAdapter):
         return cursor
 
     def begin(self) -> None:
+        if self._state and getattr(self._state.connection, "autocommit", False):
+            return
         connection = self._ensure_connection()
         cursor = connection.cursor()
         cursor.execute("BEGIN")
