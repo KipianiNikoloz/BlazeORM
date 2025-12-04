@@ -79,3 +79,33 @@ def test_many_to_many_manager_add_remove_clear(tmp_path):
 
         group.members.clear()
         assert list(group.members) == []
+
+
+def test_session_m2m_helpers_invalidate_cache(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'ops_cache.db'}")
+    session = Session(adapter, connection_config=config)
+    create_tables(session)
+
+    user = User(name="Alice")
+    group = Group(name="Admins")
+    session.begin()
+    session.add(user)
+    session.add(group)
+    session.commit()
+
+    with session:
+        session.add_m2m(group, "members", user)
+        # hydrate cache
+        cached_members = list(group.members)
+        assert cached_members
+        assert "members" in group._related_cache
+        session.remove_m2m(group, "members", user)
+        assert "members" not in group._related_cache
+        # identity map retains instance
+        assert session.identity_map.get(Group, group.pk) is group
+
+        # use model sugar and ensure cache cleared
+        group.m2m_add("members", user, session=session)
+        group.m2m_clear("members", session=session)
+        assert group._related_cache.get("members") == []

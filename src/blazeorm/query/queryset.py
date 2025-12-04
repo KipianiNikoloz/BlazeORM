@@ -203,12 +203,20 @@ class QuerySet:
     def _prefetch_relation(self, session: "Session", instances: list["Model"], relation: str) -> None:
         # Forward relation on the model
         if self._is_forward_relation(self.model, relation):
-            field = self.model._meta.get_field(relation)
+            try:
+                field = self.model._meta.get_field(relation)
+            except KeyError:
+                field = self._get_m2m_field(self.model, relation)
             if isinstance(field, ManyToManyField):
                 related_model = field.remote_model
+                current_model = self.model
                 if related_model is None:
                     return
-                self._prefetch_many_to_many(session, instances, related_model, field, relation)
+                # If field is declared on a different model (reverse via related_name),
+                # treat related_model as the declaring model for hydration.
+                if related_model is current_model:
+                    related_model = field.model
+                self._prefetch_many_to_many(session, instances, related_model, field, relation, current_model=current_model)
                 return
             self._prefetch_forward(session, instances, relation)
             return
@@ -275,6 +283,8 @@ class QuerySet:
                 related_map[row_data.get(pk_field.name)] = related_instance
         for obj in instances:
             fk_val = getattr(obj, field.name)
+            if hasattr(fk_val, "pk"):
+                fk_val = fk_val.pk
             setattr(obj, relation, related_map.get(fk_val))
 
     def _prefetch_many_to_many(
@@ -284,16 +294,16 @@ class QuerySet:
         related_model: type["Model"],
         field: "ManyToManyField",
         relation: str,
+        current_model: type["Model"],
     ) -> None:
-        pk_field = self.model._meta.primary_key
+        pk_field = current_model._meta.primary_key
         if pk_field is None:
             return
         parent_pks = [getattr(obj, pk_field.name) for obj in instances if getattr(obj, pk_field.name) is not None]
         if not parent_pks:
             return
         through = session.dialect.format_table(field.through_table(field.model))
-        # parent is the current model when relation is forward; reverse swaps columns
-        parent_is_remote = relation == (field.related_name or "")
+        parent_is_remote = current_model is field.remote_model
         parent_col_raw = field.right_column(field.model) if parent_is_remote else field.left_column(field.model)
         related_col_raw = field.left_column(field.model) if parent_is_remote else field.right_column(field.model)
         parent_col = session.dialect.quote_identifier(parent_col_raw)
@@ -341,8 +351,18 @@ class QuerySet:
         try:
             field = model._meta.get_field(name)
         except KeyError:
-            return False
+            return self._get_m2m_field(model, name) is not None
         return isinstance(field, RelatedField)
+
+    def _get_m2m_field(self, model: type["Model"], name: str):
+        for field in model._meta.many_to_many:
+            if field.name == name:
+                return field
+        # Check reverse registry for related_name pointing back to this model
+        for candidate, field in relation_registry.m2m_reverse.get(model, []):
+            if (field.related_name or f"{candidate.__name__.lower()}_set") == name:
+                return field
+        return None
 
     def _find_reverse_relation(self, model: type["Model"], related_name: str):
         # Prefer the related accessor/manager on the model if present
