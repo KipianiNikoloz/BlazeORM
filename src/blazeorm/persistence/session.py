@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
 from ..core.model import Model
+from ..core.relations import ManyToManyField, relation_registry
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import PerformanceTracker, get_logger, time_call
@@ -86,6 +87,7 @@ class Session:
 
     # ------------------------------------------------------------------ #
     def begin(self) -> None:
+        self._ensure_adapter_connected()
         self.transaction_manager.begin()
         self._snapshot_uow()
 
@@ -193,6 +195,25 @@ class Session:
         from ..query import QuerySet
 
         return QuerySet(model, dialect=self.dialect, session=self)
+
+    # Many-to-many helpers --------------------------------------------- #
+    def add_m2m(self, instance: Model, field_name: str, *related: Model) -> None:
+        field = self._get_m2m_field(instance, field_name)
+        manager = getattr(instance, field_name)
+        manager.add(*related)
+        self._invalidate_m2m_cache(instance, field, related)
+
+    def remove_m2m(self, instance: Model, field_name: str, *related: Model) -> None:
+        field = self._get_m2m_field(instance, field_name)
+        manager = getattr(instance, field_name)
+        manager.remove(*related)
+        self._invalidate_m2m_cache(instance, field, related)
+
+    def clear_m2m(self, instance: Model, field_name: str) -> None:
+        field = self._get_m2m_field(instance, field_name)
+        manager = getattr(instance, field_name)
+        manager.clear()
+        self._invalidate_m2m_cache(instance, field, [])
 
     def _materialize(self, model: Type[Model], data: dict[str, Any]) -> Model:
         pk_field = model._meta.primary_key
@@ -370,6 +391,36 @@ class Session:
         if pk_value is None:
             return
         self.cache.delete(instance.__class__, pk_value)
+
+    def _invalidate_m2m_cache(self, instance: Model, field: ManyToManyField, related: Iterable[Model]) -> None:
+        related_list = list(related)
+        if related_list:
+            instance._related_cache.pop(field.name, None)
+        else:
+            instance._related_cache[field.name] = []
+        related_name = field.related_name or f"{instance.__class__.__name__.lower()}_set"
+        for rel in related_list:
+            if hasattr(rel, "_related_cache"):
+                rel._related_cache.pop(related_name, None)
+
+    def _get_m2m_field(self, instance: Model, field_name: str) -> ManyToManyField:
+        # Check declared many-to-many fields
+        for field in instance._meta.many_to_many:
+            if field.name == field_name:
+                return field
+        # Check reverse accessors via related_name
+        from ..core.relations import ManyToManyField as M2MField
+
+        for candidate, field in relation_registry.m2m_reverse.get(instance.__class__, []):
+            name = field.related_name or f"{candidate.__name__.lower()}_set"
+            if name == field_name and isinstance(field, M2MField):
+                return field
+        raise KeyError(f"Unknown many-to-many field '{field_name}' on model '{instance.__class__.__name__}'")
+
+    def _ensure_adapter_connected(self) -> None:
+        state = getattr(self.adapter, "_state", True)
+        if not state:
+            self.adapter.connect(self.connection_config)
 
     @staticmethod
     def _row_to_dict(cursor, row) -> dict[str, Any]:
