@@ -69,6 +69,7 @@ def test_connects_using_psycopg_driver(fake_driver):
     connection = adapter.connect(config)
     assert connection in fake_driver.connections
     assert connection.autocommit is False
+    assert adapter._state.config is config
 
 
 def test_execute_runs_sql_and_validates_params(fake_driver):
@@ -95,3 +96,23 @@ def test_missing_driver_raises(monkeypatch):
     config = ConnectionConfig.from_dsn("postgresql://localhost/db")
     with pytest.raises(RuntimeError):
         adapter.connect(config)
+
+
+def test_reconnects_when_connection_closed(fake_driver):
+    adapter = PostgresAdapter()
+    config = ConnectionConfig.from_dsn("postgresql://localhost/db")
+    adapter.connect(config)
+    # Simulate closed connection
+    adapter._state.connection.closed = True
+    adapter.execute("SELECT 1", ())
+    # A new connection should be established
+    assert len(fake_driver.connections) == 2
+
+
+def test_begin_respects_autocommit(fake_driver):
+    adapter = PostgresAdapter()
+    config = ConnectionConfig.from_dsn("postgresql://localhost/db", autocommit=True)
+    adapter.connect(config)
+    adapter.begin()
+    # autocommit: cursor should not be called
+    assert fake_driver.connections[0].cursor_calls == 0
