@@ -26,6 +26,28 @@ class SchemaBuilder:
         column_list = ", ".join(columns_sql)
         return f"CREATE TABLE IF NOT EXISTS {table_name} ({column_list})"
 
+    def create_many_to_many_sql(self, model: type[Model]) -> list[str]:
+        stmts: list[str] = []
+        for field in dict.fromkeys(model._meta.many_to_many):
+            through_table = self.dialect.format_table(field.through_table(model))
+            left_col = self.dialect.quote_identifier(field.left_column(model))
+            right_col = self.dialect.quote_identifier(field.right_column(model))
+            remote = field.remote_model
+            if remote is None:
+                continue
+            remote_table = self.dialect.format_table(remote._meta.table_name)
+            remote_pk = field.remote_pk_column()
+            pk_col = self.dialect.quote_identifier(remote_pk)
+            stmt = (
+                f"CREATE TABLE IF NOT EXISTS {through_table} ("
+                f"{left_col} INTEGER NOT NULL, "
+                f"{right_col} INTEGER NOT NULL, "
+                f"UNIQUE ({left_col}, {right_col})"
+                ")"
+            )
+            stmts.append(stmt)
+        return stmts
+
     def drop_table_sql(self, model: type[Model]) -> str:
         table_name = self.dialect.format_table(model._meta.table_name)
         self.logger.warning(

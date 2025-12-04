@@ -31,6 +31,7 @@ class ModelOptions:
     fields: "OrderedDict[str, Field]" = field(default_factory=OrderedDict)
     primary_key: Optional[Field] = None
     many_to_many: list[ManyToManyField] = field(default_factory=list)
+    m2m_through_tables: dict[str, str] = field(default_factory=dict)
 
     def add_field(self, field_obj: Field) -> None:
         if field_obj.name in self.fields:
@@ -101,7 +102,6 @@ class ModelMeta(type):
             field_obj.contribute_to_class(cls, attr_name)
             if isinstance(field_obj, ManyToManyField):
                 field_obj.model = cls
-                cls._meta.many_to_many.append(field_obj)
                 relation_registry.register_field(cls, field_obj)
                 continue
             cls._meta.add_field(field_obj)
