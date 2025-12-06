@@ -70,6 +70,7 @@ def test_connects_using_psycopg_driver(fake_driver):
     assert connection in fake_driver.connections
     assert connection.autocommit is False
     assert adapter._state.config is config
+    assert adapter._state.config is config
 
 
 def test_execute_runs_sql_and_validates_params(fake_driver):
