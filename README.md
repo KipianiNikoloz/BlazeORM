@@ -92,6 +92,10 @@ engine.apply("blog", "0001", ops)
 - With optional extras: `pip install .[postgres]` or `pip install .[mysql]` to pull driver dependencies.
 - PyPI publishing is planned; once available, installation will be `pip install blazeorm`.
 
+## CI & Quality
+- GitHub Actions run pytest plus ruff/black/isort/mypy checks.
+- Integration tests for Postgres/MySQL run when `BLAZE_POSTGRES_DSN` / `BLAZE_MYSQL_DSN` are provided and drivers are installed; otherwise they skip.
+
 ## Testing
 - Run the suite: `python -m pytest`
 - Tests cover adapters, dialects, core models/relations, query compilation/execution, persistence, schema, security, caching, hooks, performance, and examples.

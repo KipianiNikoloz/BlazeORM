@@ -11,6 +11,9 @@ requires-python = ">=3.9"
 authors = [
   { name = "BlazeORM Maintainers" }
 ]
+license = { file = "LICENSE" }
+keywords = ["orm", "database", "sqlite", "postgres", "mysql", "eager loading", "migrations"]
+urls = { "Homepage" = "https://github.com/your-org/blazeorm", "Documentation" = "https://github.com/your-org/blazeorm" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
@@ -42,3 +45,20 @@ version = { attr = "blazeorm.version.__version__" }
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+ignore_missing_imports = true
