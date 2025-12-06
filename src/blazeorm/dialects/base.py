@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class DialectCapabilities:
     """
     Feature flags describing backend capabilities.
@@ -25,9 +25,14 @@ class Dialect(Protocol):
     Strategy interface consumed across query, schema, and adapter layers.
     """
 
-    name: str
-    param_style: str
-    capabilities: DialectCapabilities
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def param_style(self) -> str: ...
+
+    @property
+    def capabilities(self) -> DialectCapabilities: ...
 
     def quote_identifier(self, identifier: str) -> str: ...
 

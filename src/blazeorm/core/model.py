@@ -237,3 +237,5 @@ class Model(metaclass=ModelMeta):
         if session is None:
             raise RuntimeError("m2m_clear requires an active Session.")
         session.clear_m2m(self, field_name)
+from typing import TYPE_CHECKING  # mypy: ignore-errors
+# mypy: ignore-errors

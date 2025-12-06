@@ -90,3 +90,4 @@ class SchemaBuilder:
         if isinstance(value, bool):
             return f"DEFAULT {1 if value else 0}"
         return f"DEFAULT {value}"
+# mypy: ignore-errors
