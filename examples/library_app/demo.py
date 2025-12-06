@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 from blazeorm.adapters import SQLiteAdapter
 from blazeorm.dialects import SQLiteDialect
 from blazeorm.persistence import Session
+from blazeorm.persistence.session import _current_session
 from blazeorm.query import Q
 from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
 
@@ -48,22 +49,25 @@ def seed_sample_data(session: Session) -> Dict[str, List[Dict[str, Any]]]:
         Genre(name="Magical Realism"),
         Genre(name="Fantasy"),
     ]
-    with session.transaction():
-        for w in writers:
-            session.add(w)
-        for g in genres:
-            session.add(g)
-        session.flush()
-        books = [
-            Book(title="Kindred", published=True, author=writers[0]),
-            Book(title="Kafka on the Shore", published=True, author=writers[1]),
-        ]
-        for book in books:
-            session.add(book)
-        session.flush()
-        # Attach genres
-        books[0].genres.add(genres[0])
-        books[1].genres.add(genres[1], genres[2])
+    token = _current_session.set(session)
+    try:
+        with session.transaction():
+            for w in writers:
+                session.add(w)
+            for g in genres:
+                session.add(g)
+            session.flush()
+            books = [
+                Book(title="Kindred", published=True, author=writers[0]),
+                Book(title="Kafka on the Shore", published=True, author=writers[1]),
+            ]
+            for book in books:
+                session.add(book)
+            session.flush()
+            session.add_m2m(books[0], "genres", genres[0])
+            session.add_m2m(books[1], "genres", genres[1], genres[2])
+    finally:
+        _current_session.reset(token)
 
     return {
         "writers": [w.to_dict() for w in writers],
@@ -78,7 +82,6 @@ def fetch_books_with_authors(session: Session) -> List[Dict[str, Any]]:
         .select_related("author")
         .prefetch_related("genres")
         .where(Q(published=True))
-        .order_by("id")
     )
     result: List[Dict[str, Any]] = []
     for book in books:
