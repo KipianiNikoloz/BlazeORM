@@ -5,7 +5,6 @@ Relationship field implementations and registry utilities.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from .fields import Field

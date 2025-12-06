@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-import logging
 from typing import Any, Iterable, Sequence
 
 from ..dialects.sqlite import SQLiteDialect

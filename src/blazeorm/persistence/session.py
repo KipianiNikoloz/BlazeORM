@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Type
+from typing import Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
 from ..core.model import Model
@@ -18,10 +18,6 @@ from ..cache import CacheBackend, NoOpCache
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
-
-
-if TYPE_CHECKING:
-    from ..hooks import HookDispatcher
 
 
 _current_session: ContextVar["Session | None"] = ContextVar("blazeorm_current_session", default=None)

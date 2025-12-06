@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, List, Tuple
 
 from ..dialects.base import Dialect
 from ..core.relations import RelatedField
-from .expressions import AND, OR, Q
+from .expressions import Q
 
 if TYPE_CHECKING:
     from ..core.model import Model

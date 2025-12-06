@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable, List, Sequence
+from typing import List, Sequence
 
 from ..adapters.base import DatabaseAdapter
 from ..dialects.base import Dialect
