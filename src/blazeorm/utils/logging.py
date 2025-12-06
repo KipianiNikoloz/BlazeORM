@@ -6,7 +6,7 @@ import logging
 import time
 import uuid
 from contextvars import ContextVar
-from typing import Any, Callable, Iterable, Mapping, MutableMapping, Optional
+from typing import Any, Callable, Iterable, Optional
 
 _correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 

@@ -6,12 +6,15 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Iterator, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type, TypeVar
 
 from ..utils import camel_to_snake
 from .fields import AutoField, Field
 from .relations import ManyToManyField, RelatedField, relation_registry
 from ..query.queryset import QueryManager
+
+if TYPE_CHECKING:
+    pass
 
 
 class ModelConfigurationError(Exception):
@@ -143,17 +146,17 @@ class Model(metaclass=ModelMeta):
         self._initial_state: Dict[str, Any] = {}
         self._related_cache: Dict[str, Any] = {}
 
-        for field in self._meta.get_fields():
-            if field.primary_key and field.has_default is False and field.name not in kwargs:
+        for field_obj in self._meta.get_fields():
+            if field_obj.primary_key and field_obj.has_default is False and field_obj.name not in kwargs:
                 # Primary key may be assigned by database later.
                 continue
 
-            if field.name in kwargs:
-                setattr(self, field.name, kwargs[field.name])
-            elif field.has_default:
-                default_value = field.get_default()
+            if field_obj.name in kwargs:
+                setattr(self, field_obj.name, kwargs[field_obj.name])
+            elif field_obj.has_default:
+                default_value = field_obj.get_default()
                 if default_value is not None:
-                    setattr(self, field.name, default_value)
+                    setattr(self, field_obj.name, default_value)
 
         # Retain snapshot for simple dirty tracking
         self._initial_state = dict(self._field_values)
@@ -232,7 +235,3 @@ class Model(metaclass=ModelMeta):
         if session is None:
             raise RuntimeError("m2m_clear requires an active Session.")
         session.clear_m2m(self, field_name)
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..hooks import HookDispatcher

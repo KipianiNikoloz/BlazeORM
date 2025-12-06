@@ -1,6 +1,4 @@
 import logging
-import re
-
 from blazeorm.utils.logging import get_logger, set_correlation_id, get_correlation_id, time_call
 
 
