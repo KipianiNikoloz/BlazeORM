@@ -6,11 +6,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple
 
+from ..core.relations import ManyToManyField, RelatedField, relation_registry
 from ..dialects.sqlite import SQLiteDialect
 from .compiler import SQLCompiler
 from .expressions import Q
-from ..core.relations import ManyToManyField, RelatedField, relation_registry
-
 
 if TYPE_CHECKING:
     from ..core.model import Model
@@ -97,7 +96,9 @@ class QuerySet:
 
             session = SessionCls.current()
         if session is None:
-            raise RuntimeError("QuerySet iteration requires a bound Session. Use Session.query(model) or iterate within an active Session context.")
+            raise RuntimeError(
+                "QuerySet iteration requires a bound Session. Use Session.query(model) or iterate within an active Session context."
+            )
         sql, params = self.to_sql()
         cursor = session.execute(sql, params)
         rows = cursor.fetchall()
@@ -142,10 +143,14 @@ class QuerySet:
             return {col: row[idx] for idx, col in enumerate(columns)}
         raise ValueError("Unable to map database row to dictionary.")
 
-    def _split_related_data(self, data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    def _split_related_data(
+        self, data: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
         base_data: dict[str, Any] = {}
         related_chunks: dict[str, dict[str, Any]] = {}
-        base_columns = {field.db_column or field.name: field.name for field in self.model._meta.get_fields()}
+        base_columns = {
+            field.db_column or field.name: field.name for field in self.model._meta.get_fields()
+        }
         for key, value in data.items():
             if key in base_columns:
                 base_data[base_columns[key]] = value
@@ -194,13 +199,15 @@ class QuerySet:
                         children.append(value)
                 if children:
                     child_model = children[0].__class__
-                    QuerySet(child_model, session=session, prefetch_related=(tail,))._prefetch_related_data(
-                        session, children
-                    )
+                    QuerySet(
+                        child_model, session=session, prefetch_related=(tail,)
+                    )._prefetch_related_data(session, children)
                 continue
             self._prefetch_relation(session, instances, relation)
 
-    def _prefetch_relation(self, session: "Session", instances: list["Model"], relation: str) -> None:
+    def _prefetch_relation(
+        self, session: "Session", instances: list["Model"], relation: str
+    ) -> None:
         # Forward relation on the model
         if self._is_forward_relation(self.model, relation):
             try:
@@ -216,14 +223,18 @@ class QuerySet:
                 # treat related_model as the declaring model for hydration.
                 if related_model is current_model:
                     related_model = field.model
-                self._prefetch_many_to_many(session, instances, related_model, field, relation, current_model=current_model)
+                self._prefetch_many_to_many(
+                    session, instances, related_model, field, relation, current_model=current_model
+                )
                 return
             self._prefetch_forward(session, instances, relation)
             return
         # Reverse relation via related_name
         target = self._find_reverse_relation(self.model, relation)
         if target is None:
-            raise ValueError(f"Cannot prefetch relation '{relation}' for model '{self.model.__name__}'")
+            raise ValueError(
+                f"Cannot prefetch relation '{relation}' for model '{self.model.__name__}'"
+            )
         related_model, field = target
         if isinstance(field, ManyToManyField):
             self._prefetch_many_to_many(session, instances, related_model, field, relation)
@@ -231,13 +242,20 @@ class QuerySet:
         pk_field = self.model._meta.primary_key
         if pk_field is None:
             return
-        parent_pks = [getattr(obj, pk_field.name) for obj in instances if getattr(obj, pk_field.name) is not None]
+        parent_pks = [
+            getattr(obj, pk_field.name)
+            for obj in instances
+            if getattr(obj, pk_field.name) is not None
+        ]
         if not parent_pks:
             return
         placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in parent_pks)
         table = session.dialect.format_table(related_model._meta.table_name)
         fk_column = session.dialect.quote_identifier(field.db_column or field.name)
-        select_list = ", ".join(session.dialect.quote_identifier(f.db_column or f.name) for f in related_model._meta.get_fields())
+        select_list = ", ".join(
+            session.dialect.quote_identifier(f.db_column or f.name)
+            for f in related_model._meta.get_fields()
+        )
         sql = f"SELECT {select_list} FROM {table} WHERE {fk_column} IN ({placeholders})"
         cursor = session.execute(sql, parent_pks)
         rows = cursor.fetchall()
@@ -251,7 +269,9 @@ class QuerySet:
             parent_pk = getattr(obj, pk_field.name)
             setattr(obj, relation, bucket.get(parent_pk, []))
 
-    def _prefetch_forward(self, session: "Session", instances: list["Model"], relation: str) -> None:
+    def _prefetch_forward(
+        self, session: "Session", instances: list["Model"], relation: str
+    ) -> None:
         field = self.model._meta.get_field(relation)
         if not isinstance(field, RelatedField):
             return
@@ -270,8 +290,15 @@ class QuerySet:
         placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in fk_values)
         table = session.dialect.format_table(remote_model._meta.table_name)
         pk_field = remote_model._meta.primary_key
-        pk_column = session.dialect.quote_identifier(pk_field.db_column or pk_field.name) if pk_field else session.dialect.quote_identifier("id")
-        select_list = ", ".join(session.dialect.quote_identifier(f.db_column or f.name) for f in remote_model._meta.get_fields())
+        pk_column = (
+            session.dialect.quote_identifier(pk_field.db_column or pk_field.name)
+            if pk_field
+            else session.dialect.quote_identifier("id")
+        )
+        select_list = ", ".join(
+            session.dialect.quote_identifier(f.db_column or f.name)
+            for f in remote_model._meta.get_fields()
+        )
         sql = f"SELECT {select_list} FROM {table} WHERE {pk_column} IN ({placeholders})"
         cursor = session.execute(sql, fk_values)
         rows = cursor.fetchall()
@@ -299,19 +326,25 @@ class QuerySet:
         pk_field = current_model._meta.primary_key
         if pk_field is None:
             return
-        parent_pks = [getattr(obj, pk_field.name) for obj in instances if getattr(obj, pk_field.name) is not None]
+        parent_pks = [
+            getattr(obj, pk_field.name)
+            for obj in instances
+            if getattr(obj, pk_field.name) is not None
+        ]
         if not parent_pks:
             return
         through = session.dialect.format_table(field.through_table(field.model))
         parent_is_remote = current_model is field.remote_model
-        parent_col_raw = field.right_column(field.model) if parent_is_remote else field.left_column(field.model)
-        related_col_raw = field.left_column(field.model) if parent_is_remote else field.right_column(field.model)
+        parent_col_raw = (
+            field.right_column(field.model) if parent_is_remote else field.left_column(field.model)
+        )
+        related_col_raw = (
+            field.left_column(field.model) if parent_is_remote else field.right_column(field.model)
+        )
         parent_col = session.dialect.quote_identifier(parent_col_raw)
         related_col = session.dialect.quote_identifier(related_col_raw)
         placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in parent_pks)
-        junction_sql = (
-            f"SELECT {parent_col} AS parent_id, {related_col} AS related_id FROM {through} WHERE {parent_col} IN ({placeholders})"
-        )
+        junction_sql = f"SELECT {parent_col} AS parent_id, {related_col} AS related_id FROM {through} WHERE {parent_col} IN ({placeholders})"
         cursor = session.execute(junction_sql, parent_pks)
         rows = cursor.fetchall()
         if not rows:
@@ -320,11 +353,18 @@ class QuerySet:
             return
         related_ids = [row["related_id"] if hasattr(row, "keys") else row[1] for row in rows]
         unique_related_ids = list(dict.fromkeys(related_ids))
-        placeholders_rel = ", ".join(session.dialect.parameter_placeholder() for _ in unique_related_ids)
+        placeholders_rel = ", ".join(
+            session.dialect.parameter_placeholder() for _ in unique_related_ids
+        )
         table = session.dialect.format_table(related_model._meta.table_name)
-        select_list = ", ".join(session.dialect.quote_identifier(f.db_column or f.name) for f in related_model._meta.get_fields())
+        select_list = ", ".join(
+            session.dialect.quote_identifier(f.db_column or f.name)
+            for f in related_model._meta.get_fields()
+        )
         related_pk_field = related_model._meta.primary_key
-        related_pk_column = related_pk_field.db_column or related_pk_field.name if related_pk_field else "id"
+        related_pk_column = (
+            related_pk_field.db_column or related_pk_field.name if related_pk_field else "id"
+        )
         related_cursor = session.execute(
             f"SELECT {select_list} FROM {table} WHERE {session.dialect.quote_identifier(related_pk_column)} IN ({placeholders_rel})",
             unique_related_ids,
@@ -345,7 +385,9 @@ class QuerySet:
 
         for obj in instances:
             parent_pk = getattr(obj, pk_field.name)
-            obj._related_cache[relation] = [rel for rel in bucket.get(parent_pk, []) if rel is not None]
+            obj._related_cache[relation] = [
+                rel for rel in bucket.get(parent_pk, []) if rel is not None
+            ]
 
     def _is_forward_relation(self, model: type["Model"], name: str) -> bool:
         try:
@@ -383,7 +425,10 @@ class QuerySet:
             for field in candidate._meta.get_fields():
                 if not isinstance(field, RelatedField):
                     continue
-                if field.remote_model is model and (field.related_name or f"{candidate.__name__.lower()}_set") == related_name:
+                if (
+                    field.remote_model is model
+                    and (field.related_name or f"{candidate.__name__.lower()}_set") == related_name
+                ):
                     return candidate, field
         return None
 
@@ -394,7 +439,9 @@ class QuerySet:
         for segment in segments:
             current_field = current_model._meta.get_field(segment)
             if not isinstance(current_field, RelatedField):
-                raise ValueError(f"Field '{segment}' on '{current_model.__name__}' is not a relationship.")
+                raise ValueError(
+                    f"Field '{segment}' on '{current_model.__name__}' is not a relationship."
+                )
             if current_field.remote_model is None:
                 raise ValueError(f"Relation target '{current_field.to}' is not resolved.")
             field = current_field

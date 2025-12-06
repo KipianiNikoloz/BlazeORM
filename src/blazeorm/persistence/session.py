@@ -9,18 +9,19 @@ from contextvars import ContextVar
 from typing import Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
+from ..cache import CacheBackend, NoOpCache
 from ..core.model import Model
 from ..core.relations import ManyToManyField, relation_registry
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import PerformanceTracker, get_logger, time_call
-from ..cache import CacheBackend, NoOpCache
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
 
-
-_current_session: ContextVar["Session | None"] = ContextVar("blazeorm_current_session", default=None)
+_current_session: ContextVar["Session | None"] = ContextVar(
+    "blazeorm_current_session", default=None
+)
 
 
 class Session:
@@ -45,7 +46,9 @@ class Session:
             raise ValueError("Provide either connection_config or dsn, not both.")
         if dsn and not connection_config:
             connection_config = ConnectionConfig.from_dsn(dsn)
-        self.connection_config = connection_config or ConnectionConfig.from_dsn("sqlite:///:memory:")
+        self.connection_config = connection_config or ConnectionConfig.from_dsn(
+            "sqlite:///:memory:"
+        )
         self.identity_map = IdentityMap()
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)
@@ -364,7 +367,9 @@ class Session:
     def _redact(params: Iterable[Any]) -> list[Any]:
         redacted = []
         for value in params:
-            if isinstance(value, str) and any(token in value.lower() for token in ("password", "secret", "token")):
+            if isinstance(value, str) and any(
+                token in value.lower() for token in ("password", "secret", "token")
+            ):
                 redacted.append("***")
             else:
                 redacted.append(value)
@@ -388,7 +393,9 @@ class Session:
             return
         self.cache.delete(instance.__class__, pk_value)
 
-    def _invalidate_m2m_cache(self, instance: Model, field: ManyToManyField, related: Iterable[Model]) -> None:
+    def _invalidate_m2m_cache(
+        self, instance: Model, field: ManyToManyField, related: Iterable[Model]
+    ) -> None:
         related_list = list(related)
         if related_list:
             instance._related_cache.pop(field.name, None)
@@ -411,7 +418,9 @@ class Session:
             name = field.related_name or f"{candidate.__name__.lower()}_set"
             if name == field_name and isinstance(field, M2MField):
                 return field
-        raise KeyError(f"Unknown many-to-many field '{field_name}' on model '{instance.__class__.__name__}'")
+        raise KeyError(
+            f"Unknown many-to-many field '{field_name}' on model '{instance.__class__.__name__}'"
+        )
 
     def _ensure_adapter_connected(self) -> None:
         state = getattr(self.adapter, "_state", True)

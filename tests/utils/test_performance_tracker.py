@@ -1,7 +1,7 @@
 import logging
 
-from blazeorm.utils.performance import PerformanceTracker
 from blazeorm.utils import get_logger
+from blazeorm.utils.performance import PerformanceTracker
 
 
 def test_performance_tracker_records_summary(caplog):

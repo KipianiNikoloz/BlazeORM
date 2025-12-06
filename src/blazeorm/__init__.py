@@ -5,17 +5,17 @@ This module exposes the primary public APIs while deferring heavy imports
 to maintain quick startup time.
 """
 
-from .core.model import Model, ModelConfigurationError  # noqa: F401
-from .core.fields import (
+from .cache import InMemoryCache, NoOpCache  # noqa: F401
+from .core.fields import (  # noqa: F401
     AutoField,
     BooleanField,
     DateTimeField,
     FloatField,
     IntegerField,
     StringField,
-)  # noqa: F401
+)
+from .core.model import Model, ModelConfigurationError  # noqa: F401
 from .core.relations import ForeignKey, ManyToManyField, OneToOneField  # noqa: F401
-from .cache import InMemoryCache, NoOpCache  # noqa: F401
 from .hooks import hooks  # noqa: F401
 from .persistence import Session  # noqa: F401
 from .query import Q, QuerySet  # noqa: F401

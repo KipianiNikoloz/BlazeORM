@@ -80,7 +80,9 @@ class ForeignKey(RelatedField):
 class OneToOneField(ForeignKey):
     relation_type = "one-to-one"
 
-    def __init__(self, to: Type | str, *, related_name: Optional[str] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, to: Type | str, *, related_name: Optional[str] = None, **kwargs: Any
+    ) -> None:
         kwargs.setdefault("unique", True)
         super().__init__(to, related_name=related_name, **kwargs)
 
@@ -90,7 +92,9 @@ class ManyToManyManager:
     Manager for many-to-many relations supporting read and mutation helpers.
     """
 
-    def __init__(self, field: "ManyToManyField", instance, source_model: Type, accessor_name: str) -> None:
+    def __init__(
+        self, field: "ManyToManyField", instance, source_model: Type, accessor_name: str
+    ) -> None:
         self.field = field
         self.instance = instance
         self.source_model = source_model
@@ -147,9 +151,7 @@ class ManyToManyManager:
         related_col = self._left_column() if self.is_reverse else self._right_column()
         parent_quoted = session.dialect.quote_identifier(parent_col)
         related_quoted = session.dialect.quote_identifier(related_col)
-        junction_sql = (
-            f"SELECT {related_quoted} FROM {through_table} WHERE {parent_quoted} = {session.dialect.parameter_placeholder()}"
-        )
+        junction_sql = f"SELECT {related_quoted} FROM {through_table} WHERE {parent_quoted} = {session.dialect.parameter_placeholder()}"
         cursor = session.execute(junction_sql, (self.instance.pk,))
         related_ids = [row[0] for row in cursor.fetchall()]
         if not related_ids:
@@ -159,7 +161,8 @@ class ManyToManyManager:
         placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in related_ids)
         table = session.dialect.format_table(related_model._meta.table_name)
         select_list = ", ".join(
-            session.dialect.quote_identifier(f.db_column or f.name) for f in related_model._meta.get_fields()
+            session.dialect.quote_identifier(f.db_column or f.name)
+            for f in related_model._meta.get_fields()
         )
         pk_column = session.dialect.quote_identifier(self._related_pk_column(related_model))
         sql = f"SELECT {select_list} FROM {table} WHERE {pk_column} IN ({placeholders})"
@@ -196,9 +199,9 @@ class ManyToManyManager:
         new_values = [pk for pk in target_pks if pk not in existing]
         if not new_values:
             return
-        insert_sql = (
-            f"INSERT INTO {through} ({left_col}, {right_col}) VALUES "
-            + ", ".join(f"({session.dialect.parameter_placeholder()}, {session.dialect.parameter_placeholder()})" for _ in new_values)
+        insert_sql = f"INSERT INTO {through} ({left_col}, {right_col}) VALUES " + ", ".join(
+            f"({session.dialect.parameter_placeholder()}, {session.dialect.parameter_placeholder()})"
+            for _ in new_values
         )
         params: list[Any] = []
         for pk in new_values:
@@ -243,7 +246,12 @@ class ManyToManyManager:
 
 
 class ManyToManyDescriptor:
-    def __init__(self, field: "ManyToManyField", source_model: Optional[Type] = None, accessor_name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        field: "ManyToManyField",
+        source_model: Optional[Type] = None,
+        accessor_name: Optional[str] = None,
+    ) -> None:
         self.field = field
         self.source_model = source_model or field.model
         self.accessor_name = accessor_name or field.name
@@ -306,6 +314,7 @@ class ManyToManyField(RelatedField):
         if remote is None or remote._meta.primary_key is None:
             return "id"
         return remote._meta.primary_key.db_column or remote._meta.primary_key.name
+
 
 class RelatedAccessor:
     def __init__(self, source_model: Type, field: RelatedField) -> None:
@@ -388,7 +397,9 @@ class RelationRegistry:
         if hasattr(remote, related_name):
             return
         if isinstance(field, ManyToManyField):
-            descriptor = ManyToManyDescriptor(field, source_model=remote, accessor_name=related_name)
+            descriptor = ManyToManyDescriptor(
+                field, source_model=remote, accessor_name=related_name
+            )
         else:
             descriptor = RelatedAccessor(model, field)
         setattr(remote, related_name, descriptor)

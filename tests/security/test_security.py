@@ -60,7 +60,9 @@ def test_destructive_migration_operation_requires_force(tmp_path, caplog):
     adapter.connect(config)
     engine = MigrationEngine(adapter, SQLiteDialect())
     operations = [
-        MigrationOperation(sql="DROP TABLE IF EXISTS foo", destructive=True, description="drop foo table")
+        MigrationOperation(
+            sql="DROP TABLE IF EXISTS foo", destructive=True, description="drop foo table"
+        )
     ]
     with pytest.raises(RuntimeError):
         engine.apply("app", "0002_drop", operations)

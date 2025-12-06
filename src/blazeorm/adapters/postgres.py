@@ -26,8 +26,6 @@ class PostgresConnectionState:
     connection: Any
     config: ConnectionConfig
     driver: Any
-    config: ConnectionConfig
-    driver: Any
 
 
 class PostgresAdapter(DatabaseAdapter):
@@ -132,7 +130,9 @@ class PostgresAdapter(DatabaseAdapter):
     def _redact(params: Sequence[Any]) -> Sequence[Any]:
         redacted = []
         for value in params:
-            if isinstance(value, str) and any(token in value.lower() for token in ("password", "secret", "token")):
+            if isinstance(value, str) and any(
+                token in value.lower() for token in ("password", "secret", "token")
+            ):
                 redacted.append("***")
             else:
                 redacted.append(value)

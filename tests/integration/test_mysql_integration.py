@@ -35,14 +35,10 @@ def test_mysql_roundtrip():
         adapter.execute(
             f"CREATE TABLE IF NOT EXISTS `{table}` (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100))"
         )
-        adapter.execute(
-            f"INSERT INTO `{table}` (name) VALUES (%s)", ("mysql-ok",)
-        )
+        adapter.execute(f"INSERT INTO `{table}` (name) VALUES (%s)", ("mysql-ok",))
         adapter.commit()
 
-        cursor = adapter.execute(
-            f"SELECT name FROM `{table}` WHERE id = %s", (1,)
-        )
+        cursor = adapter.execute(f"SELECT name FROM `{table}` WHERE id = %s", (1,))
         row = cursor.fetchone()
         assert row and row[0] == "mysql-ok"
     finally:

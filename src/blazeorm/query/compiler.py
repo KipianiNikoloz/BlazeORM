@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Tuple
 
-from ..dialects.base import Dialect
 from ..core.relations import RelatedField
+from ..dialects.base import Dialect
 from .expressions import Q
 
 if TYPE_CHECKING:
@@ -127,7 +127,9 @@ class SQLCompiler:
         for segment in segments:
             field = current_model._meta.get_field(segment)
             if not isinstance(field, RelatedField):
-                raise ValueError(f"Field '{segment}' on '{current_model.__name__}' is not a relationship.")
+                raise ValueError(
+                    f"Field '{segment}' on '{current_model.__name__}' is not a relationship."
+                )
             if field.relation_type == "many-to-many":
                 raise ValueError("select_related does not support many-to-many relationships.")
             if field.remote_model is None:
