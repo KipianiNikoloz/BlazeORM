@@ -22,6 +22,7 @@ from .query import Q, QuerySet  # noqa: F401
 from .schema import MigrationEngine, MigrationOperation, SchemaBuilder  # noqa: F401
 from .utils import configure_logging, get_logger  # noqa: F401
 from .validation import ValidationError  # noqa: F401
+from .version import __version__  # noqa: F401
 
 __all__ = [
     "Model",
@@ -47,4 +48,5 @@ __all__ = [
     "hooks",
     "configure_logging",
     "get_logger",
+    "__version__",
 ]

@@ -87,6 +87,11 @@ engine.apply("blog", "0001", ops)
 - Run `python -m examples.blog_app.demo` or import `bootstrap_session` / `seed_sample_data`.
 - Additional library demo in `examples/library_app` showcasing many-to-many (writers/books/genres) with eager loading.
 
+## Installation
+- From source: `pip install .`
+- With optional extras: `pip install .[postgres]` or `pip install .[mysql]` to pull driver dependencies.
+- PyPI publishing is planned; once available, installation will be `pip install blazeorm`.
+
 ## Testing
 - Run the suite: `python -m pytest`
 - Tests cover adapters, dialects, core models/relations, query compilation/execution, persistence, schema, security, caching, hooks, performance, and examples.
