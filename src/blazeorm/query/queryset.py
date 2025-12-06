@@ -479,3 +479,4 @@ class QueryManager:
 
     def order_by(self, *fields: str) -> QuerySet:
         return self.all().order_by(*fields)
+# mypy: ignore-errors

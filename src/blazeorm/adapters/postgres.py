@@ -21,7 +21,7 @@ def _load_driver():
         return None
 
 
-@dataclass(slots=True)
+@dataclass
 class PostgresConnectionState:
     connection: Any
     config: ConnectionConfig

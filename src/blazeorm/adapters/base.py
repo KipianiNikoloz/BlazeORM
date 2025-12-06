@@ -12,7 +12,7 @@ from ..dialects.base import Dialect
 from ..security.dsns import DSNConfig, parse_dsn
 
 
-@dataclass(slots=True)
+@dataclass
 class ConnectionConfig:
     """
     Normalized connection configuration for adapters.

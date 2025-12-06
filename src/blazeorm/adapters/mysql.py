@@ -14,19 +14,19 @@ from .base import ConnectionConfig, DatabaseAdapter
 
 def _load_driver():
     try:
-        import pymysql
+        import pymysql  # type: ignore[import-untyped]
 
         return pymysql
     except ImportError:
         try:
-            import MySQLdb  # type: ignore
+            import MySQLdb  # type: ignore[import-untyped]
 
             return MySQLdb
         except ImportError:
             return None
 
 
-@dataclass(slots=True)
+@dataclass
 class MySQLConnectionState:
     connection: Any
     config: ConnectionConfig

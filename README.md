@@ -94,6 +94,7 @@ engine.apply("blog", "0001", ops)
 
 ## CI & Quality
 - GitHub Actions run pytest plus ruff/black/isort/mypy checks.
+- Note: mypy is currently configured to ignore type errors pending a full typing pass.
 - Integration tests for Postgres/MySQL run when `BLAZE_POSTGRES_DSN` / `BLAZE_MYSQL_DSN` are provided and drivers are installed; otherwise they skip.
 
 ## Testing

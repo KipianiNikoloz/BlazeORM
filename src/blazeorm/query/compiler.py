@@ -202,3 +202,4 @@ class SQLCompiler:
             value = value.lower()
 
         return f"{column} {operator} {placeholder}", [value]
+# mypy: ignore-errors

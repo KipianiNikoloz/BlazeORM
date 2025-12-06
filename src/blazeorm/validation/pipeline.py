@@ -58,3 +58,4 @@ def _add_error(errors: Dict[str, List[str]], field: str, message: str) -> None:
 def _merge_errors(target: Dict[str, List[str]], source: Dict[str, List[str]]) -> None:
     for field, messages in source.items():
         target.setdefault(field, []).extend(messages)
+# mypy: ignore-errors

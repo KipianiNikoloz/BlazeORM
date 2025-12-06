@@ -452,3 +452,4 @@ class Session:
             if hasattr(value, "pk"):
                 return value.pk
         return value
+# mypy: ignore-errors

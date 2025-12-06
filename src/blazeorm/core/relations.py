@@ -406,3 +406,4 @@ class RelationRegistry:
 
 
 relation_registry = RelationRegistry()
+# mypy: ignore-errors

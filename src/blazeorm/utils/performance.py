@@ -102,7 +102,7 @@ class PerformanceTracker:
     def _fingerprint(params: Sequence[object]) -> str:
         if not params:
             return ""
-        normalized = []
+        normalized: list[object] = []
         for value in params:
             if isinstance(value, (list, tuple)):
                 normalized.append(tuple(value))
