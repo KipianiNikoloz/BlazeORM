@@ -26,6 +26,8 @@ class PostgresConnectionState:
     connection: Any
     config: ConnectionConfig
     driver: Any
+    config: ConnectionConfig
+    driver: Any
 
 
 class PostgresAdapter(DatabaseAdapter):
