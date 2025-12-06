@@ -63,6 +63,7 @@ def test_mysql_adapter_connects(fake_driver):
     connection = adapter.connect(config)
     assert connection in fake_driver.connections
     assert connection._autocommit is False
+    assert adapter._state.config is config
 
 
 def test_mysql_execute_validates_params(fake_driver):
@@ -90,3 +91,21 @@ def test_missing_driver(monkeypatch):
     config = ConnectionConfig.from_dsn("mysql://localhost/db")
     with pytest.raises(RuntimeError):
         adapter.connect(config)
+
+
+def test_mysql_reconnects_when_closed(fake_driver):
+    adapter = MySQLAdapter()
+    config = ConnectionConfig.from_dsn("mysql://localhost/db")
+    adapter.connect(config)
+    adapter._state.connection.closed = True
+    adapter.execute("SELECT 1", ())
+    assert len(fake_driver.connections) == 2
+
+
+def test_mysql_begin_respects_autocommit(fake_driver):
+    adapter = MySQLAdapter()
+    config = ConnectionConfig.from_dsn("mysql://localhost/db", autocommit=True)
+    adapter.connect(config)
+    adapter.begin()
+    # When autocommit is true, begin should be a no-op
+    assert not hasattr(fake_driver.connections[0], "cursor_called")
