@@ -78,7 +78,9 @@ class Field:
             return
 
         if self.choices and value not in self.choices:
-            raise ValueError(f"Value '{value}' for field '{self.name}' not in choices {self.choices}")
+            raise ValueError(
+                f"Value '{value}' for field '{self.name}' not in choices {self.choices}"
+            )
 
         python_value = self.to_python(value)
         instance._field_values[self.name] = python_value
@@ -233,9 +235,7 @@ class StringField(Field):
             return value
         result = str(value)
         if self.max_length and len(result) > self.max_length:
-            raise ValueError(
-                f"Value for field '{self.name}' exceeds max_length {self.max_length}"
-            )
+            raise ValueError(f"Value for field '{self.name}' exceeds max_length {self.max_length}")
         return result
 
     def clone(self) -> "StringField":
@@ -257,7 +257,9 @@ class StringField(Field):
 
 
 class DateTimeField(Field):
-    def __init__(self, *, auto_now: bool = False, auto_now_add: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self, *, auto_now: bool = False, auto_now_add: bool = False, **kwargs: Any
+    ) -> None:
         kwargs.setdefault("db_type", "TEXT")
         super().__init__(**kwargs)
         self.auto_now = auto_now

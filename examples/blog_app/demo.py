@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 from blazeorm.adapters import SQLiteAdapter
 from blazeorm.dialects import Dialect, SQLiteDialect
 from blazeorm.persistence import Session
-from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
 from blazeorm.query import Q
+from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
 
 from .models import Author, Category, Post
 
@@ -131,11 +131,7 @@ def author_with_posts(session: Session) -> List[Dict[str, Any]]:
     Prefetch posts per author to avoid N+1 queries.
     """
 
-    authors = (
-        session.query(Author)
-        .prefetch_related("posts")
-        .order_by("id")
-    )
+    authors = session.query(Author).prefetch_related("posts").order_by("id")
     result: List[Dict[str, Any]] = []
     for author in authors:
         result.append(

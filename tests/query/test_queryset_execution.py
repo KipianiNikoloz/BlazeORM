@@ -1,8 +1,8 @@
 from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.core import ForeignKey, IntegerField, ManyToManyField, Model, StringField
-from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
 from blazeorm.dialects import SQLiteDialect
 from blazeorm.persistence import Session
+from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
 
 
 class User(Model):
@@ -132,7 +132,9 @@ def test_nested_select_and_prefetch_with_m2m_and_fk(tmp_path):
         session.execute('INSERT INTO "category" (name) VALUES (?)', ("Perf",))
         session.execute('INSERT INTO "article" (title, author) VALUES (?, ?)', ("Deep Dive", 1))
         # through table name article_category
-        session.execute('INSERT INTO "article_category" (article_id, category_id) VALUES (?, ?)', (1, 1))
+        session.execute(
+            'INSERT INTO "article_category" (article_id, category_id) VALUES (?, ?)', (1, 1)
+        )
     with session:
         articles = list(
             session.query(Article)

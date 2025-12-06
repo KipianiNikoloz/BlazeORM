@@ -8,10 +8,10 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type, TypeVar
 
+from ..query.queryset import QueryManager
 from ..utils import camel_to_snake
 from .fields import AutoField, Field
 from .relations import ManyToManyField, RelatedField, relation_registry
-from ..query.queryset import QueryManager
 
 if TYPE_CHECKING:
     pass
@@ -98,9 +98,7 @@ class ModelMeta(type):
         cls._meta = ModelOptions(model=cls, table_name=table_name, schema=schema, abstract=abstract)
 
         # TODO: Support inheriting fields from abstract base models.
-        sorted_fields = sorted(
-            declared_fields.items(), key=lambda item: item[1].creation_counter
-        )
+        sorted_fields = sorted(declared_fields.items(), key=lambda item: item[1].creation_counter)
         for attr_name, field_obj in sorted_fields:
             field_obj.contribute_to_class(cls, attr_name)
             if isinstance(field_obj, ManyToManyField):
@@ -147,7 +145,11 @@ class Model(metaclass=ModelMeta):
         self._related_cache: Dict[str, Any] = {}
 
         for field_obj in self._meta.get_fields():
-            if field_obj.primary_key and field_obj.has_default is False and field_obj.name not in kwargs:
+            if (
+                field_obj.primary_key
+                and field_obj.has_default is False
+                and field_obj.name not in kwargs
+            ):
                 # Primary key may be assigned by database later.
                 continue
 

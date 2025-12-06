@@ -14,4 +14,3 @@ __all__ = [
     "fetch_recent_posts",
     "run_demo",
 ]
-
