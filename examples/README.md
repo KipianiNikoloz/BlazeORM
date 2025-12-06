@@ -27,4 +27,4 @@ Additional Tips
 Testing References
 ------------------
 - `tests/examples/test_blog_app.py` ensures bootstrap/seed/demo flows succeed.
-
+- `tests/examples/test_library_app.py` validates bootstrap/seed and eager-loading feed for the library example.
