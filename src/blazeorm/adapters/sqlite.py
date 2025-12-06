@@ -17,6 +17,7 @@ from .base import ConnectionConfig, DatabaseAdapter
 @dataclass(slots=True)
 class SQLiteConnectionState:
     connection: sqlite3.Connection
+    config: ConnectionConfig
 
 
 class SQLiteAdapter(DatabaseAdapter):
@@ -54,13 +55,15 @@ class SQLiteAdapter(DatabaseAdapter):
         if config.isolation_level:
             connection.isolation_level = config.isolation_level
 
-        self._state = SQLiteConnectionState(connection)
+        self._state = SQLiteConnectionState(connection, config)
         return connection
 
     def close(self) -> None:
         if self._state:
-            self._state.connection.close()
-            self._state = None
+            try:
+                self._state.connection.close()
+            finally:
+                self._state = None
 
     def _ensure_connection(self) -> sqlite3.Connection:
         if not self._state:
