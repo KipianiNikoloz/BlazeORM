@@ -85,6 +85,7 @@ engine.apply("blog", "0001", ops)
 ### Example Blog App
 - Located in `examples/blog_app`.
 - Run `python -m examples.blog_app.demo` or import `bootstrap_session` / `seed_sample_data`.
+- Additional library demo in `examples/library_app` showcasing many-to-many (writers/books/genres) with eager loading.
 
 ## Testing
 - Run the suite: `python -m pytest`
