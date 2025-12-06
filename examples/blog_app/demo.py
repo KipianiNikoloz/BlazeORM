@@ -10,6 +10,7 @@ from blazeorm.adapters import SQLiteAdapter
 from blazeorm.dialects import Dialect, SQLiteDialect
 from blazeorm.persistence import Session
 from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
+from blazeorm.query import Q
 
 from .models import Author, Category, Post
 
@@ -96,6 +97,79 @@ def fetch_recent_posts(session: Session, limit: int = 5) -> List[Dict[str, Any]]
     """
     rows = session.execute(sql, (limit,)).fetchall()
     return [dict(row) for row in rows]
+
+
+def queryset_feed(session: Session, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Return published posts using QuerySet APIs with select_related for joins.
+    Demonstrates LINQ-like chaining and eager loading.
+    """
+
+    posts = (
+        session.query(Post)
+        .select_related("author", "category")
+        .where(Q(published=True))
+        .order_by("-id")
+        .limit(limit)
+    )
+    feed: List[Dict[str, Any]] = []
+    for post in posts:
+        feed.append(
+            {
+                "id": post.id,
+                "title": post.title,
+                "published": post.published,
+                "author_name": post.author.name if post.author else None,
+                "category_name": post.category.name if post.category else None,
+            }
+        )
+    return feed
+
+
+def author_with_posts(session: Session) -> List[Dict[str, Any]]:
+    """
+    Prefetch posts per author to avoid N+1 queries.
+    """
+
+    authors = (
+        session.query(Author)
+        .prefetch_related("posts")
+        .order_by("id")
+    )
+    result: List[Dict[str, Any]] = []
+    for author in authors:
+        result.append(
+            {
+                "author": author.name,
+                "posts": [p.title for p in author.posts],
+            }
+        )
+    return result
+
+
+def performance_demo(session: Session, threshold: int = 2) -> Dict[str, Any]:
+    """
+    Illustrate PerformanceTracker usage by running a small N+1 pattern
+    followed by an optimized prefetch.
+    """
+
+    session.performance.reset()
+    # Deliberate N+1
+    for post in session.query(Post).order_by("id"):
+        _ = post.author  # triggers FK access per row if not eager loaded
+    n_plus_one_stats = session.query_stats()
+
+    session.performance.reset()
+    # Optimized with eager loading
+    for post in session.query(Post).select_related("author"):
+        _ = post.author
+    optimized_stats = session.query_stats()
+
+    return {
+        "n_plus_one": n_plus_one_stats,
+        "optimized": optimized_stats,
+        "threshold": threshold,
+    }
 
 
 def run_demo(dsn: str = "sqlite:///:memory:") -> List[Dict[str, Any]]:
