@@ -12,7 +12,7 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: core/query/persistence modules with ignores; `pyproject.toml` if config changes.
 - Tests: mypy run; targeted pytest to ensure no regressions.
 - Update: record typing status change in `current_state.md`; log remaining gaps in `known_gaps.md`.
-- Status: file-level `# mypy: ignore-errors` directives removed from `src/`; core/query/persistence/validation/schema typing fixes applied; rerun mypy to confirm remaining errors.
+- Status: completed. File-level `# mypy: ignore-errors` directives removed from `src/`; core/query/persistence/validation/schema typing fixes applied; warning flags enabled in mypy config; mypy/ruff/black/isort clean per local runs; further strictness still pending.
 
 3) Adapter option coverage and error taxonomy
 - Goal: extend `ConnectionConfig` and adapters for SSL/timeout/options parity; introduce consistent adapter-level exceptions.
