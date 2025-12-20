@@ -6,6 +6,7 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: `src/blazeorm/persistence/session.py`, `tests/persistence/` (new tests), possibly `tests/integration/` for adapters.
 - Tests: relevant pytest (unit), plus integration when DSNs/drivers available.
 - Update: mark issue resolved in `current_state.md`/`known_gaps.md`; adjust maturity if stabilized.
+- Status: completed. `Session.get` uses dialect placeholders and unit tests cover Postgres/MySQL placeholder usage.
 
 2) Reduce mypy ignores and tighten typing surface
 - Goal: remove broad `# mypy: ignore-errors` where feasible, fix types, and adjust mypy config toward stricter checks without breaking CI.

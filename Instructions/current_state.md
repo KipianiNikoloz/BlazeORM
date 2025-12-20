@@ -17,7 +17,7 @@ Update this file whenever behavior, coverage, or plans change.
 ## Maturity by Subsystem
 - Core models/fields/relations: **stable** (well tested; m2m implemented and cached).
 - Query compilation & eager loading: **stable** (select_related/prefetch including m2m) with cross-dialect SQL generation; relies on adapter placeholders.
-- Session/unit-of-work/transactions: **stable** but **fragile** for cross-dialect placeholder usage in `Session.get` (see Known Issues) and thread-safety assumptions.
+- Session/unit-of-work/transactions: **stable** with thread-safety assumptions.
 - Adapters/dialects: **stable** for basic usage; reconnect/autocommit handling present for Postgres/MySQL; integration tests are env/driver-gated.
 - Schema/migrations: **stable** for basic create/drop/join-table; lacks FK/index generation (see Known Gaps).
 - Caching & hooks: **stable** within single-threaded session context.
@@ -25,7 +25,6 @@ Update this file whenever behavior, coverage, or plans change.
 - Docs/Instructions: **new layout**; keep synchronized with code and tests.
 
 ## Known Correctness/Behavior Issues (must be fixed before claiming production readiness)
-- `Session.get` uses hard-coded `?` placeholders (`src/blazeorm/persistence/session.py:143-170`), breaking Postgres/MySQL. Needs dialect-aware placeholders/tests.
 - Instructions folder is gitignored in `.gitignore`; new files may be untracked unless explicitly added.
 
 ## Branch Reality

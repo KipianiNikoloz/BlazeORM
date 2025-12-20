@@ -1,5 +1,4 @@
 # Known Gaps (Actionable)
-- `Session.get` uses hard-coded `?` placeholders, failing on Postgres/MySQL (`src/blazeorm/persistence/session.py:143-170`); add dialect-aware handling + tests.
 - Typing laxity: `pyproject.toml` is non-strict with `ignore_missing_imports=true`; warning flags are enabled, but further tightening (stricter config and type coverage) remains.
 - Schema builder does not emit FK/index constraints for relations (`src/blazeorm/schema/builder.py`); migrations rely on bare columns and unique constraints only.
 - Security redaction only masks obvious tokens in params; DSN redaction ignores sensitive query params. Improve redaction coverage and tests.

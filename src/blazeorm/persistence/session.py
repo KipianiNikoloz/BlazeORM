@@ -163,7 +163,11 @@ class Session:
         select_list = ", ".join(
             self.dialect.quote_identifier(f.column_name()) for f in model._meta.get_fields()
         )
-        sql = f"SELECT {select_list} FROM {self.dialect.format_table(model._meta.table_name)} WHERE {quoted_column} = ? LIMIT 1"
+        placeholder = self.dialect.parameter_placeholder()
+        sql = (
+            f"SELECT {select_list} FROM {self.dialect.format_table(model._meta.table_name)} "
+            f"WHERE {quoted_column} = {placeholder} LIMIT 1"
+        )
         cursor = self.execute(sql, (value,))
         row = cursor.fetchone()
         if not row:
