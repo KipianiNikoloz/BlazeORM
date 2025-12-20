@@ -9,7 +9,13 @@ from typing import Any, Iterable, Sequence
 
 from ..dialects.postgres import PostgresDialect
 from ..utils import get_logger, time_call
-from .base import ConnectionConfig, DatabaseAdapter
+from .base import (
+    AdapterConfigurationError,
+    AdapterConnectionError,
+    AdapterExecutionError,
+    ConnectionConfig,
+    DatabaseAdapter,
+)
 
 
 def _load_driver():
@@ -41,9 +47,12 @@ class PostgresAdapter(DatabaseAdapter):
     def connect(self, config: ConnectionConfig) -> Any:
         driver = _load_driver()
         if driver is None:
-            raise RuntimeError("psycopg is required to use PostgresAdapter.")
+            raise AdapterConfigurationError("psycopg is required to use PostgresAdapter.")
 
         options = dict(config.options or {})
+        if config.ssl:
+            for key, value in config.ssl.postgres_options().items():
+                options.setdefault(key, value)
         if config.timeout and "connect_timeout" not in options:
             options["connect_timeout"] = int(config.timeout)
 
@@ -53,7 +62,10 @@ class PostgresAdapter(DatabaseAdapter):
             config.autocommit,
         )
 
-        connection = driver.connect(config.url, **options)
+        try:
+            connection = driver.connect(config.url, **options)
+        except Exception as exc:
+            raise AdapterConnectionError("Failed to connect to PostgreSQL.") from exc
         connection.autocommit = bool(config.autocommit)
         if config.isolation_level:
             setattr(connection, "isolation_level", config.isolation_level)
@@ -70,7 +82,7 @@ class PostgresAdapter(DatabaseAdapter):
 
     def _ensure_connection(self):
         if not self._state:
-            raise RuntimeError("PostgresAdapter is not connected.")
+            raise AdapterConnectionError("PostgresAdapter is not connected.")
         conn = self._state.connection
         if getattr(conn, "closed", False):
             self.logger.warning("PostgreSQL connection closed; reconnecting.")
@@ -157,9 +169,11 @@ class PostgresAdapter(DatabaseAdapter):
         placeholder_count = self._count_placeholders(sql)
         if placeholder_count == 0:
             if params:
-                raise ValueError("Parameters provided but SQL statement has no placeholders.")
+                raise AdapterExecutionError(
+                    "Parameters provided but SQL statement has no placeholders."
+                )
             return
         if placeholder_count != len(params):
-            raise ValueError(
+            raise AdapterExecutionError(
                 f"Parameter count mismatch: expected {placeholder_count}, received {len(params)}."
             )

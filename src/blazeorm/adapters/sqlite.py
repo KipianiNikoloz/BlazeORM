@@ -10,7 +10,7 @@ from typing import Any, Iterable, Sequence
 
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import get_logger, time_call
-from .base import ConnectionConfig, DatabaseAdapter
+from .base import AdapterConnectionError, AdapterExecutionError, ConnectionConfig, DatabaseAdapter
 
 
 @dataclass
@@ -41,13 +41,16 @@ class SQLiteAdapter(DatabaseAdapter):
             config.autocommit,
         )
 
-        connection = sqlite3.connect(
-            path,
-            isolation_level=None if config.autocommit else "DEFERRED",
-            timeout=timeout,
-            detect_types=sqlite3.PARSE_DECLTYPES,
-            check_same_thread=False,
-        )
+        try:
+            connection = sqlite3.connect(
+                path,
+                isolation_level=None if config.autocommit else "DEFERRED",
+                timeout=timeout,
+                detect_types=sqlite3.PARSE_DECLTYPES,
+                check_same_thread=False,
+            )
+        except Exception as exc:
+            raise AdapterConnectionError("Failed to connect to SQLite.") from exc
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
 
@@ -67,7 +70,7 @@ class SQLiteAdapter(DatabaseAdapter):
 
     def _ensure_connection(self) -> sqlite3.Connection:
         if not self._state:
-            raise RuntimeError("SQLiteAdapter is not connected.")
+            raise AdapterConnectionError("SQLiteAdapter is not connected.")
         return self._state.connection
 
     # ------------------------------------------------------------------ #
@@ -143,8 +146,10 @@ class SQLiteAdapter(DatabaseAdapter):
         if not params:
             return
         if placeholder_count == 0:
-            raise ValueError("Parameters provided but SQL statement has no placeholders.")
+            raise AdapterExecutionError(
+                "Parameters provided but SQL statement has no placeholders."
+            )
         if placeholder_count != len(params):
-            raise ValueError(
+            raise AdapterExecutionError(
                 f"Parameter count mismatch: expected {placeholder_count}, received {len(params)}."
             )

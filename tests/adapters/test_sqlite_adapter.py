@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
+from blazeorm.adapters import AdapterExecutionError, ConnectionConfig, SQLiteAdapter
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def test_execute_with_mismatched_params_raises(tmp_path):
     config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'mismatch.db'}")
     adapter.connect(config)
     adapter.execute("CREATE TABLE mismatch (value TEXT)")
-    with pytest.raises(ValueError):
+    with pytest.raises(AdapterExecutionError):
         adapter.execute("INSERT INTO mismatch (value) VALUES (?)", ("one", "two"))
     adapter.close()
 
@@ -81,6 +81,6 @@ def test_execute_with_params_without_placeholders_raises(tmp_path):
     config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'no_placeholder.db'}")
     adapter.connect(config)
     adapter.execute("CREATE TABLE t (value INTEGER)")
-    with pytest.raises(ValueError):
+    with pytest.raises(AdapterExecutionError):
         adapter.execute("INSERT INTO t DEFAULT VALUES", (1,))
     adapter.close()
