@@ -34,7 +34,8 @@ Update this file whenever behavior, coverage, or plans change.
 
 ## CI / Tooling Reality
 - CI (`.github/workflows/ci.yml`) runs ruff, black, isort, mypy, pytest. Integration tests depend on `BLAZE_POSTGRES_DSN`/`BLAZE_MYSQL_DSN` and drivers; otherwise they skip.
-- `pyproject.toml` sets mypy `strict = false` and `ignore_missing_imports = true`; file-level `# mypy: ignore-errors` directives have been removed and core/query/persistence/validation/schema typing fixes were applied, but typing remains lenient and needs further tightening.
+- `pyproject.toml` sets mypy `strict = false` and `ignore_missing_imports = true`; file-level `# mypy: ignore-errors` directives have been removed and core/query/persistence/validation/schema typing fixes were applied. Warning flags (`warn_unused_ignores`, `warn_redundant_casts`, `warn_unreachable`, `warn_unused_configs`) are enabled, but typing remains lenient and needs further tightening.
+- Local runs of mypy/ruff/black/isort are clean after typing/lint fixes and unused-ignore cleanup; CI status unchanged.
 
 ## Expectations for Future Updates
 - When you change behavior or coverage, update this file: reflect new features, maturity shifts, fixed/new issues, CI/tooling changes, and branch status if relevant.
