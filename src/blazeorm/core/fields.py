@@ -148,7 +148,7 @@ class Field:
             "validators": list(self.validators),
             "help_text": self.help_text,
         }
-        cloned = self.__class__(**params)  # type: ignore[arg-type,call-arg]
+        cloned = self.__class__(**params)
         return cloned
 
     @property
