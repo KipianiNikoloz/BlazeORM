@@ -4,7 +4,7 @@ Schema builder converting model metadata into DDL statements.
 
 from __future__ import annotations
 
-from typing import Iterable, List
+from typing import List
 
 from ..core.model import Model
 from ..dialects.base import Dialect
@@ -35,9 +35,6 @@ class SchemaBuilder:
             remote = field.remote_model
             if remote is None:
                 continue
-            remote_table = self.dialect.format_table(remote._meta.table_name)
-            remote_pk = field.remote_pk_column()
-            pk_col = self.dialect.quote_identifier(remote_pk)
             stmt = (
                 f"CREATE TABLE IF NOT EXISTS {through_table} ("
                 f"{left_col} INTEGER NOT NULL, "
@@ -61,8 +58,9 @@ class SchemaBuilder:
         for field in model._meta.get_fields():
             column_type = field.db_type
             if not column_type:
-                raise ValueError(f"Field '{field.name}' missing db_type for schema generation.")
-            column_name = field.db_column or field.name
+                field_name = field.require_name()
+                raise ValueError(f"Field '{field_name}' missing db_type for schema generation.")
+            column_name = field.column_name()
             column_def = self.dialect.render_column_definition(
                 column_name,
                 column_type,

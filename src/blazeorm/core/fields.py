@@ -5,7 +5,7 @@ Field definitions and descriptors for BlazeORM models.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, cast
 
 if TYPE_CHECKING:
     from .model import Model
@@ -52,36 +52,40 @@ class Field:
         self.validators = list(validators or [])
         self.help_text = help_text
 
-        self.model = None  # Will be set during contribute_to_class
-        self.name: Optional[str] = None
+        self.model: type["Model"] | None = None  # Will be set during contribute_to_class
+        self.name: str | None = None
         self.creation_counter = Field._creation_counter
         Field._creation_counter += 1
 
     # Descriptor protocol -------------------------------------------------
-    def __get__(self, instance: Optional["Model"], owner: type | None = None) -> Any:
+    def __get__(self, instance: object | None, owner: type | None = None) -> Any:
         if instance is None:
             return self
 
-        value = instance._field_values.get(self.name)
-        if value is None and self.name not in instance._field_values:
+        model_instance = cast("Model", instance)
+        name = self.require_name()
+        value = model_instance._field_values.get(name)
+        if value is None and name not in model_instance._field_values:
             default = self.get_default()
             if default is not None or self.default is not None:
-                instance._field_values[self.name] = default
+                model_instance._field_values[name] = default
                 return default
         return value
 
-    def __set__(self, instance: "Model", value: Any) -> None:
+    def __set__(self, instance: object, value: Any) -> None:
+        model_instance = cast("Model", instance)
+        name = self.require_name()
         if value is None:
             if not self.nullable and not self.primary_key:
-                raise ValueError(f"Field '{self.name}' cannot be None")
-            instance._field_values[self.name] = None
+                raise ValueError(f"Field '{name}' cannot be None")
+            model_instance._field_values[name] = None
             return
 
         if self.choices and value not in self.choices:
-            raise ValueError(f"Value '{value}' for field '{self.name}' not in choices {self.choices}")
+            raise ValueError(f"Value '{value}' for field '{name}' not in choices {self.choices}")
 
         python_value = self.to_python(value)
-        instance._field_values[self.name] = python_value
+        model_instance._field_values[name] = python_value
 
     # Metadata helpers ----------------------------------------------------
     def bind(self, model: type["Model"], name: str) -> None:
@@ -96,6 +100,21 @@ class Field:
         """
         self.bind(model, name)
         setattr(model, name, self)
+
+    def require_name(self) -> str:
+        if self.name is None:
+            raise FieldError("Field name is not set.")
+        return self.name
+
+    def require_model(self) -> type["Model"]:
+        if self.model is None:
+            raise FieldError("Field model is not set.")
+        return self.model
+
+    def column_name(self) -> str:
+        if self.db_column:
+            return self.db_column
+        return self.require_name()
 
     # Conversion / validation ---------------------------------------------
     def get_default(self) -> Any:
@@ -141,8 +160,9 @@ class Field:
         Provide a serializable representation used by migrations. For now,
         returns a minimal mapping.
         """
+        name = self.require_name()
         return {
-            "name": self.name,
+            "name": name,
             "primary_key": self.primary_key,
             "unique": self.unique,
             "nullable": self.nullable,
@@ -163,7 +183,7 @@ class AutoField(Field):
     def __init__(self) -> None:
         super().__init__(primary_key=True, nullable=False, db_type="INTEGER")
 
-    def to_python(self, value: Any) -> int:
+    def to_python(self, value: Any) -> int | None:
         if value is None:
             return value
         try:
@@ -177,7 +197,7 @@ class IntegerField(Field):
         kwargs.setdefault("db_type", "INTEGER")
         super().__init__(**kwargs)
 
-    def to_python(self, value: Any) -> int:
+    def to_python(self, value: Any) -> int | None:
         if value is None:
             return value
         try:
@@ -191,7 +211,7 @@ class FloatField(Field):
         kwargs.setdefault("db_type", "REAL")
         super().__init__(**kwargs)
 
-    def to_python(self, value: Any) -> float:
+    def to_python(self, value: Any) -> float | None:
         if value is None:
             return value
         try:
@@ -206,7 +226,7 @@ class BooleanField(Field):
         kwargs.setdefault("nullable", False)
         super().__init__(default=default, **kwargs)
 
-    def to_python(self, value: Any) -> bool:
+    def to_python(self, value: Any) -> bool | None:
         if value is None:
             return value
         if isinstance(value, bool):
@@ -228,14 +248,13 @@ class StringField(Field):
         super().__init__(**kwargs)
         self.max_length = max_length
 
-    def to_python(self, value: Any) -> str:
+    def to_python(self, value: Any) -> str | None:
         if value is None:
             return value
         result = str(value)
         if self.max_length and len(result) > self.max_length:
-            raise ValueError(
-                f"Value for field '{self.name}' exceeds max_length {self.max_length}"
-            )
+            field_name = self.require_name()
+            raise ValueError(f"Value for field '{field_name}' exceeds max_length {self.max_length}")
         return result
 
     def clone(self) -> "StringField":
@@ -257,7 +276,9 @@ class StringField(Field):
 
 
 class DateTimeField(Field):
-    def __init__(self, *, auto_now: bool = False, auto_now_add: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self, *, auto_now: bool = False, auto_now_add: bool = False, **kwargs: Any
+    ) -> None:
         kwargs.setdefault("db_type", "TEXT")
         super().__init__(**kwargs)
         self.auto_now = auto_now
@@ -268,7 +289,7 @@ class DateTimeField(Field):
             return datetime.now(timezone.utc)
         return super().get_default()
 
-    def to_python(self, value: Any) -> datetime:
+    def to_python(self, value: Any) -> datetime | None:
         if value is None:
             return value
         if isinstance(value, datetime):

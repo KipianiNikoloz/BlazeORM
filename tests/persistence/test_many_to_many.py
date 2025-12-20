@@ -1,8 +1,8 @@
 from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.core import ManyToManyField, Model, StringField
+from blazeorm.dialects import SQLiteDialect
 from blazeorm.persistence import Session
 from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
-from blazeorm.dialects import SQLiteDialect
 
 
 class User(Model):

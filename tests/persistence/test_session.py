@@ -13,7 +13,7 @@ class User(Model):
 
 def create_table(session: Session) -> None:
     session.execute(
-        "CREATE TABLE IF NOT EXISTS \"user\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER)"
+        'CREATE TABLE IF NOT EXISTS "user" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER)'
     )
 
 
@@ -27,7 +27,7 @@ def test_session_add_and_commit_inserts_row(tmp_path):
     session.add(user)
     session.commit()
 
-    cursor = session.execute("SELECT name, age FROM \"user\"")
+    cursor = session.execute('SELECT name, age FROM "user"')
     row = cursor.fetchone()
     assert row["name"] == "Alice"
     assert row["age"] == 30
@@ -41,7 +41,7 @@ def test_session_identity_map_returns_same_instance(tmp_path):
     session = Session(adapter, connection_config=config)
     create_table(session)
     session.begin()
-    session.execute("INSERT INTO \"user\" (name, age) VALUES (?, ?)", ("Bob", 25))
+    session.execute('INSERT INTO "user" (name, age) VALUES (?, ?)', ("Bob", 25))
     session.commit()
 
     # Fetch twice should return same instance due to identity map
@@ -58,20 +58,20 @@ def test_session_delete_and_rollback(tmp_path):
     session = Session(adapter, connection_config=config)
     create_table(session)
     session.begin()
-    session.execute("INSERT INTO \"user\" (name, age) VALUES (?, ?)", ("Chris", 40))
+    session.execute('INSERT INTO "user" (name, age) VALUES (?, ?)', ("Chris", 40))
     session.commit()
 
     user = session.get(User, id=1)
     session.begin()
     session.delete(user)
     session.rollback()
-    remaining = session.execute("SELECT COUNT(*) FROM \"user\"").fetchone()[0]
+    remaining = session.execute('SELECT COUNT(*) FROM "user"').fetchone()[0]
     assert remaining == 1
 
     session.begin()
     session.delete(user)
     session.commit()
-    remaining_after = session.execute("SELECT COUNT(*) FROM \"user\"").fetchone()[0]
+    remaining_after = session.execute('SELECT COUNT(*) FROM "user"').fetchone()[0]
     assert remaining_after == 0
     session.close()
 
@@ -92,7 +92,7 @@ def test_session_updates_dirty_instances(tmp_path):
     session.begin()
     session.commit()
 
-    updated_age = session.execute("SELECT age FROM \"user\" WHERE id = ?", (user.id,)).fetchone()[0]
+    updated_age = session.execute('SELECT age FROM "user" WHERE id = ?', (user.id,)).fetchone()[0]
     assert updated_age == 23
     session.close()
 
@@ -106,7 +106,7 @@ def test_session_transaction_context(tmp_path):
     with session.transaction():
         session.add(User(name="Eve", age=31))
 
-    row = session.execute("SELECT COUNT(*) FROM \"user\"").fetchone()[0]
+    row = session.execute('SELECT COUNT(*) FROM "user"').fetchone()[0]
     assert row == 1
     session.close()
 
@@ -124,7 +124,7 @@ def test_nested_transactions_use_savepoints(tmp_path):
                 session.add(User(name="Inner", age=18))
                 raise RuntimeError("inner failure")
 
-    rows = session.execute("SELECT name FROM \"user\" ORDER BY id").fetchall()
+    rows = session.execute('SELECT name FROM "user" ORDER BY id').fetchall()
     assert [row["name"] for row in rows] == ["Outer"]
     session.close()
 

@@ -24,21 +24,29 @@ def test_queryset_to_sql_simple_filter():
 def test_queryset_ordering_and_limit():
     qs = User.objects.filter(age__gte=18).order_by("-age").limit(5)
     sql, params = qs.to_sql()
-    assert sql == 'SELECT "user"."id", "user"."name", "user"."age" FROM "user" WHERE "age" >= ? ORDER BY "age" DESC LIMIT 5'
+    assert (
+        sql
+        == 'SELECT "user"."id", "user"."name", "user"."age" FROM "user" WHERE "age" >= ? ORDER BY "age" DESC LIMIT 5'
+    )
     assert params == [18]
 
 
 def test_queryset_combined_q_objects():
     qs = User.objects.where(Q(name="Alice") | Q(age__lt=18)).offset(10)
     sql, params = qs.to_sql()
-    assert sql == 'SELECT "user"."id", "user"."name", "user"."age" FROM "user" WHERE ("name" = ?) OR ("age" < ?) LIMIT -1 OFFSET 10'
+    assert (
+        sql
+        == 'SELECT "user"."id", "user"."name", "user"."age" FROM "user" WHERE ("name" = ?) OR ("age" < ?) LIMIT -1 OFFSET 10'
+    )
     assert params == ["Alice", 18]
 
 
 def test_queryset_exclude_negates_expression():
     qs = User.objects.exclude(name="Bob")
     sql, params = qs.to_sql()
-    assert sql == 'SELECT "user"."id", "user"."name", "user"."age" FROM "user" WHERE NOT ("name" = ?)'
+    assert (
+        sql == 'SELECT "user"."id", "user"."name", "user"."age" FROM "user" WHERE NOT ("name" = ?)'
+    )
     assert params == ["Bob"]
 
 

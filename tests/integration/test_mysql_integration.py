@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import uuid
 
@@ -8,13 +9,8 @@ from blazeorm.adapters.mysql import MySQLAdapter
 
 
 def _require_mysql_adapter():
-    try:
-        import pymysql  # noqa: F401
-    except ImportError:
-        try:
-            import MySQLdb  # type: ignore  # noqa: F401
-        except ImportError:
-            pytest.skip("No MySQL driver installed")
+    if importlib.util.find_spec("pymysql") is None and importlib.util.find_spec("MySQLdb") is None:
+        pytest.skip("No MySQL driver installed")
     dsn = os.getenv("BLAZE_MYSQL_DSN")
     if not dsn:
         pytest.skip("BLAZE_MYSQL_DSN not set; skipping MySQL integration test")
@@ -35,14 +31,10 @@ def test_mysql_roundtrip():
         adapter.execute(
             f"CREATE TABLE IF NOT EXISTS `{table}` (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100))"
         )
-        adapter.execute(
-            f"INSERT INTO `{table}` (name) VALUES (%s)", ("mysql-ok",)
-        )
+        adapter.execute(f"INSERT INTO `{table}` (name) VALUES (%s)", ("mysql-ok",))
         adapter.commit()
 
-        cursor = adapter.execute(
-            f"SELECT name FROM `{table}` WHERE id = %s", (1,)
-        )
+        cursor = adapter.execute(f"SELECT name FROM `{table}` WHERE id = %s", (1,))
         row = cursor.fetchone()
         assert row and row[0] == "mysql-ok"
     finally:

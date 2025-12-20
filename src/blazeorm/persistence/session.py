@@ -5,26 +5,23 @@ Session management coordinating adapters, unit of work, and identity map.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Type
+from contextvars import ContextVar, Token
+from typing import Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, DatabaseAdapter
+from ..cache import CacheBackend, NoOpCache
 from ..core.model import Model
 from ..core.relations import ManyToManyField, relation_registry
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import PerformanceTracker, get_logger, time_call
-from ..cache import CacheBackend, NoOpCache
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
 
-
-if TYPE_CHECKING:
-    from ..hooks import HookDispatcher
-
-
-_current_session: ContextVar["Session | None"] = ContextVar("blazeorm_current_session", default=None)
+_current_session: ContextVar["Session | None"] = ContextVar(
+    "blazeorm_current_session", default=None
+)
 
 
 class Session:
@@ -49,7 +46,9 @@ class Session:
             raise ValueError("Provide either connection_config or dsn, not both.")
         if dsn and not connection_config:
             connection_config = ConnectionConfig.from_dsn(dsn)
-        self.connection_config = connection_config or ConnectionConfig.from_dsn("sqlite:///:memory:")
+        self.connection_config = connection_config or ConnectionConfig.from_dsn(
+            "sqlite:///:memory:"
+        )
         self.identity_map = IdentityMap()
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)
@@ -62,7 +61,7 @@ class Session:
         self.performance = PerformanceTracker(
             self.logger, n_plus_one_threshold=performance_threshold
         )
-        self._ctx_token = None
+        self._ctx_token: Token["Session | None"] | None = None
         self.adapter.connect(self.connection_config)
 
     # ------------------------------------------------------------------ #
@@ -146,7 +145,8 @@ class Session:
             raise ValueError("Session.get currently supports exactly one filter.")
         field_name, value = next(iter(filters.items()))
 
-        if field_name == model._meta.primary_key.name:
+        pk_field = model._meta.primary_key
+        if pk_field and field_name == pk_field.require_name():
             cached = self.identity_map.get(model, value)
             if cached is not None:
                 return cached
@@ -157,10 +157,11 @@ class Session:
                 self.identity_map.add(instance)
                 return instance
 
-        column = model._meta.get_field(field_name).db_column or field_name
+        field = model._meta.get_field(field_name)
+        column = field.column_name()
         quoted_column = self.dialect.quote_identifier(column)
         select_list = ", ".join(
-            self.dialect.quote_identifier(f.db_column or f.name) for f in model._meta.get_fields()
+            self.dialect.quote_identifier(f.column_name()) for f in model._meta.get_fields()
         )
         sql = f"SELECT {select_list} FROM {self.dialect.format_table(model._meta.table_name)} WHERE {quoted_column} = ? LIMIT 1"
         cursor = self.execute(sql, (value,))
@@ -217,14 +218,15 @@ class Session:
 
     def _materialize(self, model: Type[Model], data: dict[str, Any]) -> Model:
         pk_field = model._meta.primary_key
-        pk_value = data.get(pk_field.name) if pk_field else None
-        if pk_field and pk_value is not None:
+        pk_name = pk_field.require_name() if pk_field else None
+        pk_value = data.get(pk_name) if pk_name else None
+        if pk_name and pk_value is not None:
             cached = self.identity_map.get(model, pk_value)
             if cached:
                 return cached
         instance = model(**data)
-        if pk_field and pk_value is not None and getattr(instance, pk_field.name, None) is None:
-            setattr(instance, pk_field.name, pk_value)
+        if pk_name and pk_value is not None and getattr(instance, pk_name, None) is None:
+            setattr(instance, pk_name, pk_value)
         instance._initial_state = dict(instance._field_values)
         self.identity_map.add(instance)
         self._cache_instance(instance)
@@ -287,11 +289,12 @@ class Session:
         columns = []
         params = []
         for field in instance._meta.get_fields():
-            if field.primary_key and getattr(instance, field.name, None) is None:
+            field_name = field.require_name()
+            if field.primary_key and getattr(instance, field_name, None) is None:
                 continue
-            raw_value = getattr(instance, field.name, None)
+            raw_value = getattr(instance, field_name, None)
             value = self._normalize_db_value(field, raw_value)
-            columns.append(self.dialect.quote_identifier(field.db_column or field.name))
+            columns.append(self.dialect.quote_identifier(field.column_name()))
             params.append(value)
 
         placeholders = ", ".join(self.dialect.parameter_placeholder() for _ in columns)
@@ -300,9 +303,10 @@ class Session:
         cursor = self.execute(sql, params)
 
         pk_field = instance._meta.primary_key
-        if pk_field and getattr(instance, pk_field.name, None) is None:
-            pk_value = self.adapter.last_insert_id(cursor, instance._meta.table_name, pk_field.name)
-            setattr(instance, pk_field.name, pk_value)
+        if pk_field and getattr(instance, pk_field.require_name(), None) is None:
+            pk_name = pk_field.require_name()
+            pk_value = self.adapter.last_insert_id(cursor, instance._meta.table_name, pk_name)
+            setattr(instance, pk_name, pk_value)
 
         instance._initial_state = dict(instance._field_values)
         self.identity_map.add(instance)
@@ -317,7 +321,8 @@ class Session:
         pk_field = instance._meta.primary_key
         if pk_field is None:
             raise ValueError(f"Model '{instance.__class__.__name__}' lacks a primary key.")
-        pk_value = getattr(instance, pk_field.name)
+        pk_name = pk_field.require_name()
+        pk_value = getattr(instance, pk_name)
         if pk_value is None:
             raise ValueError("Dirty instance missing primary key value.")
 
@@ -326,12 +331,13 @@ class Session:
         for field in instance._meta.get_fields():
             if field.primary_key:
                 continue
-            raw_value = getattr(instance, field.name)
+            field_name = field.require_name()
+            raw_value = getattr(instance, field_name)
             value = self._normalize_db_value(field, raw_value)
-            initial_value = instance._initial_state.get(field.name)
+            initial_value = instance._initial_state.get(field_name)
             if value != initial_value:
                 set_clauses.append(
-                    f"{self.dialect.quote_identifier(field.db_column or field.name)} = {self.dialect.parameter_placeholder()}"
+                    f"{self.dialect.quote_identifier(field.column_name())} = {self.dialect.parameter_placeholder()}"
                 )
                 params.append(value)
 
@@ -340,7 +346,7 @@ class Session:
 
         table = self.dialect.format_table(instance._meta.table_name)
         set_sql = ", ".join(set_clauses)
-        pk_clause = f"{self.dialect.quote_identifier(pk_field.db_column or pk_field.name)} = {self.dialect.parameter_placeholder()}"
+        pk_clause = f"{self.dialect.quote_identifier(pk_field.column_name())} = {self.dialect.parameter_placeholder()}"
         params.append(pk_value)
         sql = f"UPDATE {table} SET {set_sql} WHERE {pk_clause}"
         self.execute(sql, params)
@@ -352,12 +358,12 @@ class Session:
         pk_field = instance._meta.primary_key
         if pk_field is None:
             raise ValueError(f"Model '{instance.__class__.__name__}' lacks a primary key.")
-        pk_value = getattr(instance, pk_field.name)
+        pk_value = getattr(instance, pk_field.require_name())
         if pk_value is None:
             return
         self.hooks.fire("before_delete", instance, session=self)
         table = self.dialect.format_table(instance._meta.table_name)
-        pk_clause = f"{self.dialect.quote_identifier(pk_field.db_column or pk_field.name)} = {self.dialect.parameter_placeholder()}"
+        pk_clause = f"{self.dialect.quote_identifier(pk_field.column_name())} = {self.dialect.parameter_placeholder()}"
         sql = f"DELETE FROM {table} WHERE {pk_clause}"
         self.execute(sql, (pk_value,))
         self.identity_map.remove(instance)
@@ -368,7 +374,9 @@ class Session:
     def _redact(params: Iterable[Any]) -> list[Any]:
         redacted = []
         for value in params:
-            if isinstance(value, str) and any(token in value.lower() for token in ("password", "secret", "token")):
+            if isinstance(value, str) and any(
+                token in value.lower() for token in ("password", "secret", "token")
+            ):
                 redacted.append("***")
             else:
                 redacted.append(value)
@@ -378,7 +386,7 @@ class Session:
         pk_field = instance._meta.primary_key
         if pk_field is None:
             return
-        pk_value = getattr(instance, pk_field.name, None)
+        pk_value = getattr(instance, pk_field.require_name(), None)
         if pk_value is None:
             return
         self.cache.set(instance.__class__, pk_value, instance.to_dict())
@@ -387,17 +395,20 @@ class Session:
         pk_field = instance._meta.primary_key
         if pk_field is None:
             return
-        pk_value = getattr(instance, pk_field.name, None)
+        pk_value = getattr(instance, pk_field.require_name(), None)
         if pk_value is None:
             return
         self.cache.delete(instance.__class__, pk_value)
 
-    def _invalidate_m2m_cache(self, instance: Model, field: ManyToManyField, related: Iterable[Model]) -> None:
+    def _invalidate_m2m_cache(
+        self, instance: Model, field: ManyToManyField, related: Iterable[Model]
+    ) -> None:
         related_list = list(related)
+        field_name = field.require_name()
         if related_list:
-            instance._related_cache.pop(field.name, None)
+            instance._related_cache.pop(field_name, None)
         else:
-            instance._related_cache[field.name] = []
+            instance._related_cache[field_name] = []
         related_name = field.related_name or f"{instance.__class__.__name__.lower()}_set"
         for rel in related_list:
             if hasattr(rel, "_related_cache"):
@@ -415,7 +426,9 @@ class Session:
             name = field.related_name or f"{candidate.__name__.lower()}_set"
             if name == field_name and isinstance(field, M2MField):
                 return field
-        raise KeyError(f"Unknown many-to-many field '{field_name}' on model '{instance.__class__.__name__}'")
+        raise KeyError(
+            f"Unknown many-to-many field '{field_name}' on model '{instance.__class__.__name__}'"
+        )
 
     def _ensure_adapter_connected(self) -> None:
         state = getattr(self.adapter, "_state", True)

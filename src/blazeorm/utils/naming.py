@@ -4,7 +4,6 @@ Naming utilities for BlazeORM.
 
 import re
 
-
 _FIRST_CAP_RE = re.compile("(.)([A-Z][a-z]+)")
 _ALL_CAP_RE = re.compile("([a-z0-9])([A-Z])")
 

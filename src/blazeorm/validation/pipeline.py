@@ -15,13 +15,14 @@ def validate_instance(instance: Model) -> None:
     errors: Dict[str, List[str]] = {}
 
     for field in instance._meta.get_fields():
-        value = getattr(instance, field.name, None)
+        field_name = field.require_name()
+        value = getattr(instance, field_name, None)
         try:
             _validate_field(field, value, instance)
         except ValidationError as exc:
             _merge_errors(errors, exc.errors)
         except Exception as exc:
-            _add_error(errors, field.name, str(exc))
+            _add_error(errors, field_name, str(exc))
 
     # Model-level clean hook
     clean_method = getattr(instance, "clean", None)
@@ -42,13 +43,15 @@ def _validate_field(field: Field, value, instance: Model) -> None:
         if field.primary_key and isinstance(field, AutoField):
             return
         if not field.nullable:
-            raise ValidationError({field.name: ["This field cannot be null."]})
+            field_name = field.require_name()
+            raise ValidationError({field_name: ["This field cannot be null."]})
         return
 
     try:
         field.run_validators(value)
     except Exception as exc:
-        raise ValidationError({field.name: [str(exc)]}) from exc
+        field_name = field.require_name()
+        raise ValidationError({field_name: [str(exc)]}) from exc
 
 
 def _add_error(errors: Dict[str, List[str]], field: str, message: str) -> None:

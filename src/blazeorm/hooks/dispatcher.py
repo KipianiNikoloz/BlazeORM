@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 from ..core.model import Model
 
-
 HookHandler = Callable[..., None]
 
 
@@ -30,7 +29,9 @@ class HookDispatcher:
             lambda: defaultdict(list)
         )
 
-    def register(self, event: str, handler: HookHandler, *, model: Optional[Type[Model]] = None) -> None:
+    def register(
+        self, event: str, handler: HookHandler, *, model: Optional[Type[Model]] = None
+    ) -> None:
         if model:
             self._model_handlers[model][event].append(handler)
         else:
