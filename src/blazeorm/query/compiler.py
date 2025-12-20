@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Tuple
 
-from ..dialects.base import Dialect
 from ..core.relations import RelatedField
-from .expressions import AND, OR, Q
+from ..dialects.base import Dialect
+from .expressions import Q
 
 if TYPE_CHECKING:
     from ..core.model import Model
@@ -83,15 +83,15 @@ class SQLCompiler:
         columns: List[str] = []
         base_table = self._table_for_model(self.model)
         for field in self.model._meta.get_fields():
-            columns.append(self._qualified(base_table, field.db_column or field.name))
+            columns.append(self._qualified(base_table, field.column_name()))
 
         for path in self.select_related:
             related_model = self._get_related_model(path)
             table = self._table_for_model(related_model)
             for field in related_model._meta.get_fields():
-                alias = f"{path}__{field.name}"
+                alias = f"{path}__{field.require_name()}"
                 columns.append(
-                    f"{self._qualified(table, field.db_column or field.name)} AS {self.dialect.quote_identifier(alias)}"
+                    f"{self._qualified(table, field.column_name())} AS {self.dialect.quote_identifier(alias)}"
                 )
         return ", ".join(columns)
 
@@ -104,11 +104,11 @@ class SQLCompiler:
             if remote_model is None:
                 raise ValueError(f"Relation '{path}' could not be resolved.")
             remote_table = self._table_for_model(remote_model)
-            fk_column = field.db_column or field.name
+            fk_column = field.column_name()
             pk_field = remote_model._meta.primary_key
             if pk_field is None:
                 raise ValueError(f"Related model '{remote_model.__name__}' lacks primary key.")
-            pk_column = pk_field.db_column or pk_field.name
+            pk_column = pk_field.column_name()
             joins.append(
                 f"LEFT JOIN {remote_table} ON {self._qualified(base_table, fk_column)} = {self._qualified(remote_table, pk_column)}"
             )
@@ -123,16 +123,19 @@ class SQLCompiler:
     def _get_relation_field(self, model: type["Model"], path: str) -> RelatedField:
         segments = path.split("__")
         current_model = model
-        field = None
+        field: RelatedField | None = None
         for segment in segments:
-            field = current_model._meta.get_field(segment)
-            if not isinstance(field, RelatedField):
-                raise ValueError(f"Field '{segment}' on '{current_model.__name__}' is not a relationship.")
-            if field.relation_type == "many-to-many":
+            current_field = current_model._meta.get_field(segment)
+            if not isinstance(current_field, RelatedField):
+                raise ValueError(
+                    f"Field '{segment}' on '{current_model.__name__}' is not a relationship."
+                )
+            if current_field.relation_type == "many-to-many":
                 raise ValueError("select_related does not support many-to-many relationships.")
-            if field.remote_model is None:
-                raise ValueError(f"Relation target '{field.to}' is not resolved.")
-            current_model = field.remote_model
+            if current_field.remote_model is None:
+                raise ValueError(f"Relation target '{current_field.to}' is not resolved.")
+            field = current_field
+            current_model = current_field.remote_model
         if field is None:
             raise ValueError(f"Invalid relation path '{path}'")
         return field
@@ -142,7 +145,7 @@ class SQLCompiler:
         descending = field_name.startswith("-")
         name = field_name[1:] if descending else field_name
         field = self.model._meta.get_field(name)
-        clause = self.dialect.quote_identifier(field.db_column or field.name)
+        clause = self.dialect.quote_identifier(field.column_name())
         if descending:
             clause += " DESC"
         return clause
@@ -182,7 +185,7 @@ class SQLCompiler:
             field_name, lookup = field_lookup, "exact"
 
         field = self.model._meta.get_field(field_name)
-        column = self.dialect.quote_identifier(field.db_column or field.name)
+        column = self.dialect.quote_identifier(field.column_name())
 
         if value is None:
             if lookup != "exact":

@@ -29,17 +29,11 @@ def test_postgres_roundtrip():
     table = f"blaze_pg_integration_{uuid.uuid4().hex[:8]}"
     try:
         adapter.begin()
-        adapter.execute(
-            f'CREATE TABLE IF NOT EXISTS "{table}" (id SERIAL PRIMARY KEY, name TEXT)'
-        )
-        adapter.execute(
-            f'INSERT INTO "{table}" (name) VALUES (%s)', ("pg-ok",)
-        )
+        adapter.execute(f'CREATE TABLE IF NOT EXISTS "{table}" (id SERIAL PRIMARY KEY, name TEXT)')
+        adapter.execute(f'INSERT INTO "{table}" (name) VALUES (%s)', ("pg-ok",))
         adapter.commit()
 
-        cursor = adapter.execute(
-            f'SELECT name FROM "{table}" WHERE id = %s', (1,)
-        )
+        cursor = adapter.execute(f'SELECT name FROM "{table}" WHERE id = %s', (1,))
         row = cursor.fetchone()
         assert row and row[0] == "pg-ok"
     finally:

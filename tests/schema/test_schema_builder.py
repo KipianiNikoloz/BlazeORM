@@ -4,7 +4,6 @@ from blazeorm.core import IntegerField, ManyToManyField, Model, StringField
 from blazeorm.dialects import SQLiteDialect
 from blazeorm.schema import SchemaBuilder
 
-
 dialect = SQLiteDialect()
 builder = SchemaBuilder(dialect)
 

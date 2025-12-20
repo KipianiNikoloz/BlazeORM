@@ -5,7 +5,6 @@ Relationship field implementations and registry utilities.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from .fields import Field
@@ -45,8 +44,9 @@ class RelatedField(Field):
         if instance is None:
             return self
         cache = getattr(instance, "_related_cache", {})
-        if self.name in cache:
-            return cache[self.name]
+        name = self.require_name()
+        if name in cache:
+            return cache[name]
         return super().__get__(instance, owner)
 
     def resolve_model(self, model: Type) -> None:
@@ -68,20 +68,23 @@ class ForeignKey(RelatedField):
         super().__init__(to, related_name=related_name, on_delete=on_delete, **kwargs)
 
     def __set__(self, instance, value):
+        name = self.require_name()
         if hasattr(value, "pk"):
             if hasattr(instance, "_related_cache"):
-                instance._related_cache[self.name] = value
+                instance._related_cache[name] = value
             value = value.pk
         else:
             if hasattr(instance, "_related_cache"):
-                instance._related_cache.pop(self.name, None)
+                instance._related_cache.pop(name, None)
         super().__set__(instance, value)
 
 
 class OneToOneField(ForeignKey):
     relation_type = "one-to-one"
 
-    def __init__(self, to: Type | str, *, related_name: Optional[str] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, to: Type | str, *, related_name: Optional[str] = None, **kwargs: Any
+    ) -> None:
         kwargs.setdefault("unique", True)
         super().__init__(to, related_name=related_name, **kwargs)
 
@@ -91,7 +94,9 @@ class ManyToManyManager:
     Manager for many-to-many relations supporting read and mutation helpers.
     """
 
-    def __init__(self, field: "ManyToManyField", instance, source_model: Type, accessor_name: str) -> None:
+    def __init__(
+        self, field: "ManyToManyField", instance, source_model: Type, accessor_name: str
+    ) -> None:
         self.field = field
         self.instance = instance
         self.source_model = source_model
@@ -107,26 +112,33 @@ class ManyToManyManager:
         return session
 
     def _through_table(self) -> str:
-        return self.field.through_table(self.field.model)
+        return self.field.through_table(self._field_model())
 
     def _left_column(self) -> str:
         # Column for the declaring model (field.model)
-        return self.field.left_column(self.field.model)
+        return self.field.left_column(self._field_model())
 
     def _right_column(self) -> str:
         # Column for the related model (remote_model)
-        return self.field.right_column(self.field.model)
+        return self.field.right_column(self._field_model())
+
+    def _field_model(self) -> Type:
+        model = self.field.model
+        if model is None:
+            raise RuntimeError("Many-to-many field is not bound to a model.")
+        return model
 
     def _related_pk_column(self, related_model) -> str:
         pk_field = related_model._meta.primary_key
         if pk_field is None:
             return "id"
-        return pk_field.db_column or pk_field.name
+        return pk_field.column_name()
 
     def _normalize_targets(self, objs) -> list[Any]:
         related_model = self.field.model if self.is_reverse else self.field.remote_model
         if related_model is None:
-            raise RuntimeError(f"Related model for field '{self.field.name}' is not resolved.")
+            field_name = self.field.require_name()
+            raise RuntimeError(f"Related model for field '{field_name}' is not resolved.")
         pks: list[Any] = []
         for obj in objs:
             if hasattr(obj, "pk"):
@@ -142,15 +154,14 @@ class ManyToManyManager:
         session = self._session()
         related_model = self.field.model if self.is_reverse else self.field.remote_model
         if related_model is None:
-            raise RuntimeError(f"Related model for field '{self.field.name}' is not resolved.")
+            field_name = self.field.require_name()
+            raise RuntimeError(f"Related model for field '{field_name}' is not resolved.")
         through_table = session.dialect.format_table(self._through_table())
         parent_col = self._right_column() if self.is_reverse else self._left_column()
         related_col = self._left_column() if self.is_reverse else self._right_column()
         parent_quoted = session.dialect.quote_identifier(parent_col)
         related_quoted = session.dialect.quote_identifier(related_col)
-        junction_sql = (
-            f"SELECT {related_quoted} FROM {through_table} WHERE {parent_quoted} = {session.dialect.parameter_placeholder()}"
-        )
+        junction_sql = f"SELECT {related_quoted} FROM {through_table} WHERE {parent_quoted} = {session.dialect.parameter_placeholder()}"
         cursor = session.execute(junction_sql, (self.instance.pk,))
         related_ids = [row[0] for row in cursor.fetchall()]
         if not related_ids:
@@ -160,7 +171,8 @@ class ManyToManyManager:
         placeholders = ", ".join(session.dialect.parameter_placeholder() for _ in related_ids)
         table = session.dialect.format_table(related_model._meta.table_name)
         select_list = ", ".join(
-            session.dialect.quote_identifier(f.db_column or f.name) for f in related_model._meta.get_fields()
+            session.dialect.quote_identifier(f.column_name())
+            for f in related_model._meta.get_fields()
         )
         pk_column = session.dialect.quote_identifier(self._related_pk_column(related_model))
         sql = f"SELECT {select_list} FROM {table} WHERE {pk_column} IN ({placeholders})"
@@ -179,7 +191,8 @@ class ManyToManyManager:
         session = self._session()
         related_model = self.field.remote_model
         if related_model is None:
-            raise RuntimeError(f"Related model for field '{self.field.name}' is not resolved.")
+            field_name = self.field.require_name()
+            raise RuntimeError(f"Related model for field '{field_name}' is not resolved.")
         target_pks = self._normalize_targets(objs)
         if not target_pks:
             return
@@ -197,9 +210,9 @@ class ManyToManyManager:
         new_values = [pk for pk in target_pks if pk not in existing]
         if not new_values:
             return
-        insert_sql = (
-            f"INSERT INTO {through} ({left_col}, {right_col}) VALUES "
-            + ", ".join(f"({session.dialect.parameter_placeholder()}, {session.dialect.parameter_placeholder()})" for _ in new_values)
+        insert_sql = f"INSERT INTO {through} ({left_col}, {right_col}) VALUES " + ", ".join(
+            f"({session.dialect.parameter_placeholder()}, {session.dialect.parameter_placeholder()})"
+            for _ in new_values
         )
         params: list[Any] = []
         for pk in new_values:
@@ -244,10 +257,21 @@ class ManyToManyManager:
 
 
 class ManyToManyDescriptor:
-    def __init__(self, field: "ManyToManyField", source_model: Optional[Type] = None, accessor_name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        field: "ManyToManyField",
+        source_model: Optional[Type] = None,
+        accessor_name: Optional[str] = None,
+    ) -> None:
         self.field = field
-        self.source_model = source_model or field.model
-        self.accessor_name = accessor_name or field.name
+        resolved_source = source_model or field.model
+        if resolved_source is None:
+            raise RuntimeError("Many-to-many field is not bound to a model.")
+        self.source_model: Type = resolved_source
+        resolved_accessor = accessor_name or field.name
+        if resolved_accessor is None:
+            raise RuntimeError("Many-to-many field accessor name is not set.")
+        self.accessor_name: str = resolved_accessor
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -308,6 +332,7 @@ class ManyToManyField(RelatedField):
             return "id"
         return remote._meta.primary_key.db_column or remote._meta.primary_key.name
 
+
 class RelatedAccessor:
     def __init__(self, source_model: Type, field: RelatedField) -> None:
         self.source_model = source_model
@@ -330,7 +355,8 @@ class RelatedManager:
     def all(self):
         qs = self.model.objects.all()
         if self.instance:
-            return qs.filter(**{self.field.name: self.instance.pk})
+            field_name = self.field.require_name()
+            return qs.filter(**{field_name: self.instance.pk})
         return qs
 
     def filter(self, **lookups):
@@ -389,7 +415,9 @@ class RelationRegistry:
         if hasattr(remote, related_name):
             return
         if isinstance(field, ManyToManyField):
-            descriptor = ManyToManyDescriptor(field, source_model=remote, accessor_name=related_name)
+            descriptor: ManyToManyDescriptor | RelatedAccessor = ManyToManyDescriptor(
+                field, source_model=remote, accessor_name=related_name
+            )
         else:
             descriptor = RelatedAccessor(model, field)
         setattr(remote, related_name, descriptor)

@@ -1,9 +1,7 @@
-import types
-
 import pytest
 
 from blazeorm.adapters import ConnectionConfig
-from blazeorm.adapters.postgres import PostgresAdapter, _load_driver
+from blazeorm.adapters.postgres import PostgresAdapter
 
 
 class FakeCursor:

@@ -18,7 +18,7 @@ def make_session(tmp_path):
     config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'hooks.db'}")
     session = Session(adapter, connection_config=config)
     session.execute(
-        "CREATE TABLE IF NOT EXISTS \"sample\" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER)"
+        'CREATE TABLE IF NOT EXISTS "sample" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER)'
     )
     return session
 
@@ -38,6 +38,7 @@ def test_hooks_fire_in_order(tmp_path):
         "after_save",
         "after_commit",
     ]:
+
         def handler(inst, event=event_name, **ctx):
             events.append((event, inst.name if inst else None))
 

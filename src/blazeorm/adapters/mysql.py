@@ -14,19 +14,19 @@ from .base import ConnectionConfig, DatabaseAdapter
 
 def _load_driver():
     try:
-        import pymysql
+        import pymysql  # type: ignore[import-untyped]
 
         return pymysql
     except ImportError:
         try:
-            import MySQLdb  # type: ignore
+            import MySQLdb  # type: ignore[import-untyped]
 
             return MySQLdb
         except ImportError:
             return None
 
 
-@dataclass(slots=True)
+@dataclass
 class MySQLConnectionState:
     connection: Any
     config: ConnectionConfig
@@ -143,7 +143,9 @@ class MySQLAdapter(DatabaseAdapter):
     def _redact(params: Sequence[Any]) -> Sequence[Any]:
         redacted = []
         for value in params:
-            if isinstance(value, str) and any(token in value.lower() for token in ("password", "secret", "token")):
+            if isinstance(value, str) and any(
+                token in value.lower() for token in ("password", "secret", "token")
+            ):
                 redacted.append("***")
             else:
                 redacted.append(value)

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-import logging
 from typing import Any, Iterable, Sequence
 
 from ..dialects.sqlite import SQLiteDialect
@@ -14,7 +13,7 @@ from ..utils import get_logger, time_call
 from .base import ConnectionConfig, DatabaseAdapter
 
 
-@dataclass(slots=True)
+@dataclass
 class SQLiteConnectionState:
     connection: sqlite3.Connection
     config: ConnectionConfig
@@ -44,7 +43,7 @@ class SQLiteAdapter(DatabaseAdapter):
 
         connection = sqlite3.connect(
             path,
-            isolation_level=None if config.autocommit else "",
+            isolation_level=None if config.autocommit else "DEFERRED",
             timeout=timeout,
             detect_types=sqlite3.PARSE_DECLTYPES,
             check_same_thread=False,
@@ -53,7 +52,8 @@ class SQLiteAdapter(DatabaseAdapter):
         connection.execute("PRAGMA foreign_keys = ON")
 
         if config.isolation_level:
-            connection.isolation_level = config.isolation_level
+            # sqlite3 types expect specific literals; allow override and silence typing complaints.
+            connection.isolation_level = config.isolation_level  # type: ignore[assignment]
 
         self._state = SQLiteConnectionState(connection, config)
         return connection

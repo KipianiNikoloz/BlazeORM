@@ -1,0 +1,33 @@
+# Plan (Execute in Order)
+Keep this plan updated after each completed step. Each step must include goal, likely files, tests, and required state updates.
+
+1) Fix cross-dialect `Session.get` placeholders
+- Goal: make `Session.get` use dialect-aware placeholders and add coverage for Postgres/MySQL.
+- Files: `src/blazeorm/persistence/session.py`, `tests/persistence/` (new tests), possibly `tests/integration/` for adapters.
+- Tests: relevant pytest (unit), plus integration when DSNs/drivers available.
+- Update: mark issue resolved in `current_state.md`/`known_gaps.md`; adjust maturity if stabilized.
+
+2) Reduce mypy ignores and tighten typing surface
+- Goal: remove broad `# mypy: ignore-errors` where feasible, fix types, and adjust mypy config toward stricter checks without breaking CI.
+- Files: core/query/persistence modules with ignores; `pyproject.toml` if config changes.
+- Tests: mypy run; targeted pytest to ensure no regressions.
+- Update: record typing status change in `current_state.md`; log remaining gaps in `known_gaps.md`.
+- Status: file-level `# mypy: ignore-errors` directives removed from `src/`; core/query/persistence/validation/schema typing fixes applied; rerun mypy to confirm remaining errors.
+
+3) Adapter option coverage and error taxonomy
+- Goal: extend `ConnectionConfig` and adapters for SSL/timeout/options parity; introduce consistent adapter-level exceptions.
+- Files: `src/blazeorm/adapters/base.py`, adapter implementations, related tests under `tests/adapters/`, docs in Instructions/README and relevant files.
+- Tests: unit adapter tests; integration when DSNs/drivers available.
+- Update: reflect new capabilities in `current_state.md`; add/remove gaps accordingly.
+
+4) Schema builder enhancements (FKs/indexes) and migration safety
+- Goal: emit FK/index metadata where appropriate and document destructive confirmation; ensure migrations remain explicit.
+- Files: `src/blazeorm/schema/builder.py`, `schema` tests, README updates if needed.
+- Tests: `tests/schema/*`, additional cases for FK/index rendering.
+- Update: document new coverage and residual limitations in `current_state.md`/`known_gaps.md`.
+
+5) Performance/observability exports and slow-query configuration
+- Goal: add export/reset hooks for `PerformanceTracker` and configurable slow-query thresholds per env/session/adapter.
+- Files: `src/blazeorm/utils/performance.py`, `session` integration, docs/tests under `tests/performance/`.
+- Tests: performance unit tests; session regression tests.
+- Update: note new features and any remaining observability gaps in `current_state.md`.

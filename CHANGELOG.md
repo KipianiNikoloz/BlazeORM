@@ -3,8 +3,10 @@
 All notable changes to this project will be documented here.
 
 ## [Unreleased]
-- Initial PyPI packaging scaffolding (`pyproject.toml`, version export).
-- Adapter hardening for Postgres/MySQL (reconnect, autocommit respect).
-- Eager loading and m2m enhancements with new examples (blog/library).
-- Integration smoke tests for Postgres/MySQL (env/driver gated).
-- Documentation overhaul and module-level READMEs.
+- (no changes yet)
+
+## [0.1.0] - 2025-12-06
+- Initial packaging scaffolding (`pyproject.toml`, version export, extras) plus CI (ruff/black/isort/mypy/pytest).
+- Adapter hardening for Postgres/MySQL (reconnect, autocommit respect) and env-driven integration smoke tests.
+- Eager loading and many-to-many enhancements with expanded examples (blog, library).
+- Documentation overhaul with module-level READMEs and updated Instructions.

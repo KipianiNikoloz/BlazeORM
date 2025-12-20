@@ -1,0 +1,14 @@
+# Glossary
+- Adapter: DB-API wrapper implementing connect/execute/executemany/begin/commit/rollback/last_insert_id with parameter validation and logging.
+- Dialect: Rendering rules for quoting identifiers, placeholders, and limit/offset plus capability flags (savepoints, returning, namespaces).
+- Session: Unit-of-work orchestrator binding adapter+dialect, identity map, cache, hooks, performance tracking, and contextvar for implicit usage.
+- Identity Map: In-memory map ensuring a single instance per model+PK during a session; reused during materialization.
+- QuerySet: Chainable query builder tied to a model and dialect; executes via a session to materialize models and hydrate relations.
+- Q Expression: Boolean filter object composing where clauses for QuerySets.
+- Eager Loading: Fetching related data without N+1; `select_related` uses joins, `prefetch_related` uses follow-up bulk queries (FK/reverse/m2m, nested paths).
+- Many-to-Many Manager: Descriptor-backed helper that fetches/manages join-table rows (add/remove/clear) using the active session.
+- SchemaBuilder: Generates DDL (create table/join tables) from model metadata with dialect-aware column rendering.
+- MigrationEngine: Applies ordered `MigrationOperation` objects with version tracking and destructive-operation confirmation.
+- Cache Backend: Simple get/set/delete/clear interface (NoOp or in-memory) used for session 2nd-level caching of instances by PK.
+- Hook Dispatcher: Global registry for lifecycle events (`before/after_validate/save/delete`, `after_commit`).
+- PerformanceTracker: Records SQL execution stats, detects potential N+1 by counting distinct parameter sets, and exposes summaries.
