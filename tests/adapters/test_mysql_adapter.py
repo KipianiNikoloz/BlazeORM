@@ -1,6 +1,6 @@
 import pytest
 
-from blazeorm.adapters import ConnectionConfig
+from blazeorm.adapters import AdapterConfigurationError, AdapterExecutionError, ConnectionConfig
 from blazeorm.adapters.mysql import MySQLAdapter
 
 
@@ -72,7 +72,7 @@ def test_mysql_execute_validates_params(fake_driver):
     adapter.connect(config)
     cursor = adapter.execute("SELECT * FROM foo WHERE id = %s", (1,))
     assert cursor.last_params == (1,)
-    with pytest.raises(ValueError):
+    with pytest.raises(AdapterExecutionError):
         adapter.execute("SELECT * FROM foo WHERE id = %s", ())
 
 
@@ -89,8 +89,23 @@ def test_missing_driver(monkeypatch):
     monkeypatch.setattr("blazeorm.adapters.mysql._load_driver", lambda: None)
     adapter = MySQLAdapter()
     config = ConnectionConfig.from_dsn("mysql://localhost/db")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(AdapterConfigurationError):
         adapter.connect(config)
+
+
+def test_mysql_connect_applies_timeout_and_ssl_options(fake_driver):
+    adapter = MySQLAdapter()
+    dsn = (
+        "mysql://user:secret@localhost:3306/dbname?"
+        "timeout=4&connect_timeout=2&ssl_ca=/ca.pem&ssl_cert=/cert.pem&ssl_key=/key.pem"
+    )
+    config = ConnectionConfig.from_dsn(dsn)
+    adapter.connect(config)
+    options = fake_driver.connections[0].options
+    assert options["connect_timeout"] == 2
+    assert options["ssl"]["ca"] == "/ca.pem"
+    assert options["ssl"]["cert"] == "/cert.pem"
+    assert options["ssl"]["key"] == "/key.pem"
 
 
 def test_mysql_reconnects_when_closed(fake_driver):

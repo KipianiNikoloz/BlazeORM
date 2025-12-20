@@ -19,6 +19,7 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: `src/blazeorm/adapters/base.py`, adapter implementations, related tests under `tests/adapters/`, docs in Instructions/README and relevant files.
 - Tests: unit adapter tests; integration when DSNs/drivers available.
 - Update: reflect new capabilities in `current_state.md`; add/remove gaps accordingly.
+- Status: completed. ConnectionConfig now parses DSN query options (autocommit/timeout/isolation/connect_timeout/SSL); adapters apply SSL/timeout options and raise Adapter* exceptions; tests added in `tests/adapters/`.
 
 4) Schema builder enhancements (FKs/indexes) and migration safety
 - Goal: emit FK/index metadata where appropriate and document destructive confirmation; ensure migrations remain explicit.

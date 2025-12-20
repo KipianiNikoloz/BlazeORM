@@ -6,7 +6,7 @@ Update this file whenever behavior, coverage, or plans change.
 - Relations: FK, OneToOne, ManyToMany with forward/reverse accessors; m2m managers support add/remove/clear and caching; relation registry auto-installs reverse accessors.
 - Query layer: `Q` expressions, compiler, `QuerySet` with filter/exclude/order/limit/offset, `select_related` joins, `prefetch_related` for FK/reverse/m2m (including nested paths); session-bound iteration.
 - Persistence: `Session` with adapter/dialect binding, identity map, unit-of-work, nested transactions/savepoints, contextvar-bound session, caching, hooks, m2m helpers, performance tracker (`query_stats`).
-- Adapters/dialects: SQLite/Postgres/MySQL adapters with parameter validation, DSN redaction, structured logging; dialects handle quoting/limit/placeholders/capabilities.
+- Adapters/dialects: SQLite/Postgres/MySQL adapters with parameter validation, DSN redaction, structured logging, DSN-query option parsing (autocommit/timeout/isolation/connect_timeout/SSL), and Adapter* exception taxonomy; dialects handle quoting/limit/placeholders/capabilities.
 - Schema/migrations: `SchemaBuilder` renders tables and m2m join tables; `MigrationEngine` with version table and destructive-operation confirmation.
 - Security: DSN parsing/redaction (`ConnectionConfig.from_dsn/from_env`), destructive migration confirmation.
 - Caching: NoOp and in-memory backends with session 2nd-level cache.
