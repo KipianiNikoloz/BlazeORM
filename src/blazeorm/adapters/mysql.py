@@ -9,7 +9,13 @@ from typing import Any, Iterable, Sequence
 
 from ..dialects.mysql import MySQLDialect
 from ..utils import get_logger, time_call
-from .base import ConnectionConfig, DatabaseAdapter
+from .base import (
+    AdapterConfigurationError,
+    AdapterConnectionError,
+    AdapterExecutionError,
+    ConnectionConfig,
+    DatabaseAdapter,
+)
 
 
 def _load_driver():
@@ -46,9 +52,14 @@ class MySQLAdapter(DatabaseAdapter):
     def connect(self, config: ConnectionConfig) -> Any:
         driver = _load_driver()
         if driver is None:
-            raise RuntimeError("PyMySQL or mysqlclient is required to use MySQLAdapter.")
+            raise AdapterConfigurationError(
+                "PyMySQL or mysqlclient is required to use MySQLAdapter."
+            )
 
         options = dict(config.options or {})
+        if config.ssl:
+            for key, value in config.ssl.mysql_options().items():
+                options.setdefault(key, value)
         if config.timeout and "connect_timeout" not in options:
             options["connect_timeout"] = int(config.timeout)
 
@@ -59,7 +70,9 @@ class MySQLAdapter(DatabaseAdapter):
         )
 
         if not config.dsn:
-            raise ValueError("ConnectionConfig must be built from a DSN for MySQL connections.")
+            raise AdapterConfigurationError(
+                "ConnectionConfig must be built from a DSN for MySQL connections."
+            )
 
         dsn = config.dsn
         connect_kwargs = {
@@ -72,7 +85,10 @@ class MySQLAdapter(DatabaseAdapter):
         if dsn.port:
             connect_kwargs["port"] = dsn.port
 
-        connection = driver.connect(**connect_kwargs)
+        try:
+            connection = driver.connect(**connect_kwargs)
+        except Exception as exc:
+            raise AdapterConnectionError("Failed to connect to MySQL.") from exc
         if hasattr(connection, "autocommit"):
             connection.autocommit(config.autocommit)
         if config.isolation_level:
@@ -90,7 +106,7 @@ class MySQLAdapter(DatabaseAdapter):
 
     def _ensure_connection(self):
         if not self._state:
-            raise RuntimeError("MySQLAdapter is not connected.")
+            raise AdapterConnectionError("MySQLAdapter is not connected.")
         conn = self._state.connection
         if getattr(conn, "closed", False):
             self.logger.warning("MySQL connection closed; reconnecting.")
@@ -170,9 +186,11 @@ class MySQLAdapter(DatabaseAdapter):
         placeholder_count = self._count_placeholders(sql)
         if placeholder_count == 0:
             if params:
-                raise ValueError("Parameters provided but SQL statement has no placeholders.")
+                raise AdapterExecutionError(
+                    "Parameters provided but SQL statement has no placeholders."
+                )
             return
         if placeholder_count != len(params):
-            raise ValueError(
+            raise AdapterExecutionError(
                 f"Parameter count mismatch: expected {placeholder_count}, received {len(params)}."
             )

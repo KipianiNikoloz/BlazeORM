@@ -1,6 +1,6 @@
 import pytest
 
-from blazeorm.adapters import ConnectionConfig
+from blazeorm.adapters import AdapterConfigurationError, AdapterExecutionError, ConnectionConfig
 from blazeorm.adapters.postgres import PostgresAdapter
 
 
@@ -77,7 +77,7 @@ def test_execute_runs_sql_and_validates_params(fake_driver):
     adapter.connect(config)
     cursor = adapter.execute("SELECT * FROM foo WHERE id = %s", (1,))
     assert cursor.last_params == (1,)
-    with pytest.raises(ValueError):
+    with pytest.raises(AdapterExecutionError):
         adapter.execute("SELECT * FROM foo WHERE id = %s", ())
 
 
@@ -93,8 +93,22 @@ def test_missing_driver_raises(monkeypatch):
     monkeypatch.setattr("blazeorm.adapters.postgres._load_driver", lambda: None)
     adapter = PostgresAdapter()
     config = ConnectionConfig.from_dsn("postgresql://localhost/db")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(AdapterConfigurationError):
         adapter.connect(config)
+
+
+def test_connect_applies_timeout_and_ssl_options(fake_driver):
+    adapter = PostgresAdapter()
+    dsn = (
+        "postgresql://user:secret@localhost:5432/dbname?"
+        "timeout=5&connect_timeout=3&sslmode=require&sslrootcert=/ca.pem"
+    )
+    config = ConnectionConfig.from_dsn(dsn)
+    adapter.connect(config)
+    options = fake_driver.connections[0].options
+    assert options["connect_timeout"] == 3
+    assert options["sslmode"] == "require"
+    assert options["sslrootcert"] == "/ca.pem"
 
 
 def test_reconnects_when_connection_closed(fake_driver):
