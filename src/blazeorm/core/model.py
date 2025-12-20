@@ -6,15 +6,12 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type, TypeVar
+from typing import Any, ClassVar, Dict, Iterable, Optional, Type, TypeVar, cast
 
 from ..query.queryset import QueryManager
 from ..utils import camel_to_snake
 from .fields import AutoField, Field
 from .relations import ManyToManyField, RelatedField, relation_registry
-
-if TYPE_CHECKING:
-    pass
 
 
 class ModelConfigurationError(Exception):
@@ -37,11 +34,12 @@ class ModelOptions:
     m2m_through_tables: dict[str, str] = field(default_factory=dict)
 
     def add_field(self, field_obj: Field) -> None:
-        if field_obj.name in self.fields:
+        name = field_obj.require_name()
+        if name in self.fields:
             raise ModelConfigurationError(
-                f"Duplicate field name '{field_obj.name}' on model '{self.model.__name__}'"
+                f"Duplicate field name '{name}' on model '{self.model.__name__}'"
             )
-        self.fields[field_obj.name] = field_obj
+        self.fields[name] = field_obj
         if field_obj.primary_key:
             if self.primary_key and self.primary_key is not field_obj:
                 raise ModelConfigurationError(
@@ -83,7 +81,7 @@ class ModelMeta(type):
             if isinstance(value, Field):
                 declared_fields[attr_name] = attrs.pop(attr_name)
 
-        cls = super().__new__(mcls, name, bases, attrs)
+        cls = cast(type["Model"], super().__new__(mcls, name, bases, attrs))
 
         meta = getattr(cls, "Meta", None)
         table_name = camel_to_snake(name)
@@ -139,36 +137,41 @@ class Model(metaclass=ModelMeta):
     Persistence operations are supplied by the persistence layer.
     """
 
+    _meta: ClassVar[ModelOptions]
+    objects: ClassVar[QueryManager]
+
     def __init__(self, **kwargs: Any) -> None:
         self._field_values: Dict[str, Any] = {}
         self._initial_state: Dict[str, Any] = {}
         self._related_cache: Dict[str, Any] = {}
 
         for field_obj in self._meta.get_fields():
+            field_name = field_obj.require_name()
             if (
                 field_obj.primary_key
                 and field_obj.has_default is False
-                and field_obj.name not in kwargs
+                and field_name not in kwargs
             ):
                 # Primary key may be assigned by database later.
                 continue
 
-            if field_obj.name in kwargs:
-                setattr(self, field_obj.name, kwargs[field_obj.name])
+            if field_name in kwargs:
+                setattr(self, field_name, kwargs[field_name])
             elif field_obj.has_default:
                 default_value = field_obj.get_default()
                 if default_value is not None:
-                    setattr(self, field_obj.name, default_value)
+                    setattr(self, field_name, default_value)
 
         # Retain snapshot for simple dirty tracking
         self._initial_state = dict(self._field_values)
 
     def __repr__(self) -> str:
-        field_parts = ", ".join(
-            f"{field.name}={repr(self._field_values.get(field.name))}"
-            for field in self._meta.get_fields()
-            if field.name in self._field_values
-        )
+        parts = []
+        for field_obj in self._meta.get_fields():
+            field_name = field_obj.require_name()
+            if field_name in self._field_values:
+                parts.append(f"{field_name}={repr(self._field_values.get(field_name))}")
+        field_parts = ", ".join(parts)
         return f"<{self.__class__.__name__} {field_parts}>"
 
     @property
@@ -177,10 +180,13 @@ class Model(metaclass=ModelMeta):
             raise ModelConfigurationError(
                 f"Model '{self.__class__.__name__}' does not define a primary key."
             )
-        return getattr(self, self._meta.primary_key.name)
+        return getattr(self, self._meta.primary_key.require_name())
 
     def to_dict(self) -> Dict[str, Any]:
-        return {field.name: getattr(self, field.name) for field in self._meta.get_fields()}
+        return {
+            field.require_name(): getattr(self, field.require_name())
+            for field in self._meta.get_fields()
+        }
 
     def is_dirty(self) -> bool:
         return any(
@@ -237,5 +243,3 @@ class Model(metaclass=ModelMeta):
         if session is None:
             raise RuntimeError("m2m_clear requires an active Session.")
         session.clear_m2m(self, field_name)
-from typing import TYPE_CHECKING  # mypy: ignore-errors
-# mypy: ignore-errors

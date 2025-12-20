@@ -58,8 +58,9 @@ class SchemaBuilder:
         for field in model._meta.get_fields():
             column_type = field.db_type
             if not column_type:
-                raise ValueError(f"Field '{field.name}' missing db_type for schema generation.")
-            column_name = field.db_column or field.name
+                field_name = field.require_name()
+                raise ValueError(f"Field '{field_name}' missing db_type for schema generation.")
+            column_name = field.column_name()
             column_def = self.dialect.render_column_definition(
                 column_name,
                 column_type,
@@ -90,4 +91,3 @@ class SchemaBuilder:
         if isinstance(value, bool):
             return f"DEFAULT {1 if value else 0}"
         return f"DEFAULT {value}"
-# mypy: ignore-errors
