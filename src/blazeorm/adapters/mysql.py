@@ -19,7 +19,7 @@ def _load_driver():
         return pymysql
     except ImportError:
         try:
-            import MySQLdb  # type: ignore[import-untyped]
+            import MySQLdb
 
             return MySQLdb
         except ImportError:
