@@ -14,6 +14,7 @@ from ..core.model import Model
 from ..core.relations import ManyToManyField, relation_registry
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
+from ..security.redaction import redact_params
 from ..utils import PerformanceTracker, get_logger, time_call
 from ..utils.performance import resolve_slow_query_ms
 from .identity_map import IdentityMap
@@ -390,15 +391,7 @@ class Session:
 
     @staticmethod
     def _redact(params: Iterable[Any]) -> list[Any]:
-        redacted = []
-        for value in params:
-            if isinstance(value, str) and any(
-                token in value.lower() for token in ("password", "secret", "token")
-            ):
-                redacted.append("***")
-            else:
-                redacted.append(value)
-        return redacted
+        return redact_params(params)
 
     def _cache_instance(self, instance: Model) -> None:
         pk_field = instance._meta.primary_key

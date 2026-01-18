@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from ..dialects.postgres import PostgresDialect
+from ..security.redaction import redact_params
 from ..utils import get_logger, time_call
 from ..utils.performance import resolve_slow_query_ms
 from .base import (
@@ -149,15 +150,7 @@ class PostgresAdapter(DatabaseAdapter):
 
     @staticmethod
     def _redact(params: Sequence[Any]) -> Sequence[Any]:
-        redacted = []
-        for value in params:
-            if isinstance(value, str) and any(
-                token in value.lower() for token in ("password", "secret", "token")
-            ):
-                redacted.append("***")
-            else:
-                redacted.append(value)
-        return redacted
+        return redact_params(params)
 
     @staticmethod
     def _count_placeholders(sql: str) -> int:

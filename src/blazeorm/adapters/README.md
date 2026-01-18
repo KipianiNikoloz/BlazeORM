@@ -24,7 +24,7 @@ Usage Notes
 -----------
 - Prefer `ConnectionConfig.from_dsn` to configure adapters; pass into `Session`.
 - Autocommit is optional; transactions are managed by `Session` and adapters.
-- Secrets are redacted automatically in logs via ConnectionConfig and adapter `_redact`.
+- Secrets are redacted automatically in logs via ConnectionConfig (including sensitive query params) and adapter/session parameter redaction helpers.
 - DSN query parameters can supply `autocommit`, `timeout`, `isolation_level`, `connect_timeout`, and SSL-related options (e.g., `sslmode`, `sslrootcert`, `ssl_ca`).
 
 Testing References

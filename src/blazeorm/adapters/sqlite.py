@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from ..dialects.sqlite import SQLiteDialect
+from ..security.redaction import redact_params
 from ..utils import get_logger, time_call
 from ..utils.performance import resolve_slow_query_ms
 from .base import AdapterConnectionError, AdapterExecutionError, ConnectionConfig, DatabaseAdapter
@@ -143,13 +144,7 @@ class SQLiteAdapter(DatabaseAdapter):
 
     @staticmethod
     def _redact(params: Sequence[Any]) -> Sequence[Any]:
-        redacted = []
-        for value in params:
-            if isinstance(value, str) and "password" in value.lower():
-                redacted.append("***")
-            else:
-                redacted.append(value)
-        return redacted
+        return redact_params(params)
 
     @staticmethod
     def _count_placeholders(sql: str) -> int:
