@@ -7,7 +7,7 @@ Update this file whenever behavior, coverage, or plans change.
 - Query layer: `Q` expressions, compiler, `QuerySet` with filter/exclude/order/limit/offset, `select_related` joins, `prefetch_related` for FK/reverse/m2m (including nested paths); session-bound iteration.
 - Persistence: `Session` with adapter/dialect binding, identity map, unit-of-work, nested transactions/savepoints, contextvar-bound session, caching, hooks, m2m helpers, performance tracker (`query_stats`).
 - Adapters/dialects: SQLite/Postgres/MySQL adapters with parameter validation, DSN redaction, structured logging, DSN-query option parsing (autocommit/timeout/isolation/connect_timeout/SSL), and Adapter* exception taxonomy; dialects handle quoting/limit/placeholders/capabilities.
-- Schema/migrations: `SchemaBuilder` renders tables and m2m join tables; `MigrationEngine` with version table and destructive-operation confirmation.
+- Schema/migrations: `SchemaBuilder` renders tables and m2m join tables with FK constraints plus index DDL helpers; `MigrationEngine` with version table, dialect placeholders, and destructive-operation confirmation.
 - Security: DSN parsing/redaction (`ConnectionConfig.from_dsn/from_env`), destructive migration confirmation.
 - Caching: NoOp and in-memory backends with session 2nd-level cache.
 - Hooks: before/after validate/save/delete, after_commit via dispatcher.
@@ -17,15 +17,14 @@ Update this file whenever behavior, coverage, or plans change.
 ## Maturity by Subsystem
 - Core models/fields/relations: **stable** (well tested; m2m implemented and cached).
 - Query compilation & eager loading: **stable** (select_related/prefetch including m2m) with cross-dialect SQL generation; relies on adapter placeholders.
-- Session/unit-of-work/transactions: **stable** but **fragile** for cross-dialect placeholder usage in `Session.get` (see Known Issues) and thread-safety assumptions.
+- Session/unit-of-work/transactions: **stable** with thread-safety assumptions.
 - Adapters/dialects: **stable** for basic usage; reconnect/autocommit handling present for Postgres/MySQL; integration tests are env/driver-gated.
-- Schema/migrations: **stable** for basic create/drop/join-table; lacks FK/index generation (see Known Gaps).
+- Schema/migrations: **stable** for table/join-table/index/foreign-key DDL with destructive-operation warnings; explicit migration operations remain required.
 - Caching & hooks: **stable** within single-threaded session context.
 - Performance tracker: **stable** warnings/stats; no external exporters yet.
 - Docs/Instructions: **new layout**; keep synchronized with code and tests.
 
 ## Known Correctness/Behavior Issues (must be fixed before claiming production readiness)
-- `Session.get` uses hard-coded `?` placeholders (`src/blazeorm/persistence/session.py:143-170`), breaking Postgres/MySQL. Needs dialect-aware placeholders/tests.
 - Instructions folder is gitignored in `.gitignore`; new files may be untracked unless explicitly added.
 
 ## Branch Reality
