@@ -21,7 +21,7 @@ from .base import (
 
 def _load_driver():
     try:
-        import pymysql  # type: ignore[import-untyped]
+        import pymysql
 
         return pymysql
     except ImportError:
