@@ -8,7 +8,7 @@ Update this file whenever behavior, coverage, or plans change.
 - Persistence: `Session` with adapter/dialect binding, identity map, unit-of-work, nested transactions/savepoints, contextvar-bound session, caching, hooks, m2m helpers, performance tracker (`query_stats`).
 - Adapters/dialects: SQLite/Postgres/MySQL adapters with parameter validation, DSN redaction, structured logging, DSN-query option parsing (autocommit/timeout/isolation/connect_timeout/SSL), and Adapter* exception taxonomy; dialects handle quoting/limit/placeholders/capabilities.
 - Schema/migrations: `SchemaBuilder` renders tables and m2m join tables with FK constraints plus index DDL helpers; `MigrationEngine` with version table, dialect placeholders, and destructive-operation confirmation.
-- Security: DSN parsing/redaction (`ConnectionConfig.from_dsn/from_env`), destructive migration confirmation.
+- Security: DSN parsing/redaction (`ConnectionConfig.from_dsn/from_env`) including sensitive query params and parameter value masking, destructive migration confirmation.
 - Caching: NoOp and in-memory backends with session 2nd-level cache.
 - Hooks: before/after validate/save/delete, after_commit via dispatcher.
 - Performance: query timing, N+1 detection with warnings, export/reset stats helpers, and configurable slow-query thresholds via env/session/adapter.
