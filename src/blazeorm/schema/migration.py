@@ -92,9 +92,7 @@ class MigrationEngine:
     def _record_migration(self, app: str, name: str) -> None:
         table = self.dialect.format_table(self.version_table)
         timestamp = datetime.now(timezone.utc).isoformat()
-        placeholders = ", ".join(
-            self.dialect.parameter_placeholder() for _ in range(3)
-        )
+        placeholders = ", ".join(self.dialect.parameter_placeholder() for _ in range(3))
         self.adapter.execute(
             f"INSERT INTO {table} (app, name, applied_at) VALUES ({placeholders})",
             (app, name, timestamp),
