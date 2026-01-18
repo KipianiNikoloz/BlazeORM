@@ -5,8 +5,36 @@ Performance tracking utilities and N+1 query detection.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import List, Sequence
+
+SLOW_QUERY_ENV_VAR = "BLAZE_SLOW_QUERY_MS"
+
+
+def _validate_slow_query_ms(value: int, *, source: str) -> int:
+    if value < 0:
+        raise ValueError(f"{source} must be >= 0, got {value}.")
+    return value
+
+
+def _parse_slow_query_ms(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid {SLOW_QUERY_ENV_VAR} value {value!r}; must be an integer."
+        ) from exc
+    return _validate_slow_query_ms(parsed, source=SLOW_QUERY_ENV_VAR)
+
+
+def resolve_slow_query_ms(*, default: int, override: int | None) -> int:
+    if override is not None:
+        return _validate_slow_query_ms(override, source="slow_query_ms")
+    env_value = os.getenv(SLOW_QUERY_ENV_VAR)
+    if env_value is None:
+        return _validate_slow_query_ms(default, source="default slow_query_ms")
+    return _parse_slow_query_ms(env_value)
 
 
 @dataclass
@@ -60,16 +88,22 @@ class PerformanceTracker:
             self._report(normalized_sql, stat)
 
     def summary(self) -> List[dict[str, object]]:
-        return [
-            {
+        return self.export()
+
+    def export(self, *, include_samples: bool = False) -> List[dict[str, object]]:
+        payload: List[dict[str, object]] = []
+        for stat in self.stats.values():
+            row = {
                 "sql": stat.sql,
                 "count": stat.count,
                 "total_ms": stat.total_ms,
                 "average_ms": stat.average_ms,
                 "distinct_params": len(stat.fingerprints),
             }
-            for stat in self.stats.values()
-        ]
+            if include_samples:
+                row["samples"] = list(stat.samples)
+            payload.append(row)
+        return payload
 
     def reset(self) -> None:
         self.stats.clear()

@@ -11,7 +11,7 @@ Update this file whenever behavior, coverage, or plans change.
 - Security: DSN parsing/redaction (`ConnectionConfig.from_dsn/from_env`), destructive migration confirmation.
 - Caching: NoOp and in-memory backends with session 2nd-level cache.
 - Hooks: before/after validate/save/delete, after_commit via dispatcher.
-- Performance: query timing, N+1 detection with warnings and stats summary.
+- Performance: query timing, N+1 detection with warnings, export/reset stats helpers, and configurable slow-query thresholds via env/session/adapter.
 - Examples: blog and library apps exercising eager loading and m2m; tests assert demo flows.
 
 ## Maturity by Subsystem
@@ -21,7 +21,7 @@ Update this file whenever behavior, coverage, or plans change.
 - Adapters/dialects: **stable** for basic usage; reconnect/autocommit handling present for Postgres/MySQL; integration tests are env/driver-gated.
 - Schema/migrations: **stable** for table/join-table/index/foreign-key DDL with destructive-operation warnings; explicit migration operations remain required.
 - Caching & hooks: **stable** within single-threaded session context.
-- Performance tracker: **stable** warnings/stats; no external exporters yet.
+- Performance tracker: **stable** warnings/stats with export/reset helpers and configurable slow-query thresholds.
 - Docs/Instructions: **new layout**; keep synchronized with code and tests.
 
 ## Known Correctness/Behavior Issues (must be fixed before claiming production readiness)

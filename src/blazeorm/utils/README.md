@@ -9,11 +9,10 @@ What Lives Here
 
 Key Behaviors
 -------------
-- `time_call` wraps execution with timing + structured logs (used by adapters/session).
-- `PerformanceTracker` tracks executed SQL signatures; warns on repeated parameterized statements over a threshold.
+- `time_call` wraps execution with timing + structured logs (used by adapters/session); slow-query threshold can be set via `BLAZE_SLOW_QUERY_MS`.
+- `PerformanceTracker` tracks executed SQL signatures; warns on repeated parameterized statements over a threshold and exports stats via `export()`.
 - Logging utilities integrate with adapters and session for consistent outputs.
 
 Testing References
 ------------------
 - `tests/utils/test_logging.py`, `tests/utils/test_performance_tracker.py`, `tests/performance/test_n_plus_one.py`.
-

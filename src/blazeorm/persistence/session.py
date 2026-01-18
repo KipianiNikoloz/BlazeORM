@@ -15,6 +15,7 @@ from ..core.relations import ManyToManyField, relation_registry
 from ..dialects.base import Dialect
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import PerformanceTracker, get_logger, time_call
+from ..utils.performance import resolve_slow_query_ms
 from .identity_map import IdentityMap
 from .transaction import TransactionManager
 from .unit_of_work import UnitOfWork
@@ -38,6 +39,7 @@ class Session:
         autocommit: bool = False,
         cache_backend: Optional[CacheBackend] = None,
         performance_threshold: int = 5,
+        slow_query_ms: int | None = None,
     ) -> None:
         self.adapter = adapter
         self.autocommit = autocommit
@@ -58,6 +60,7 @@ class Session:
 
         self.hooks = hooks
         self.logger = get_logger("persistence.session")
+        self.slow_query_ms = resolve_slow_query_ms(default=200, override=slow_query_ms)
         self.performance = PerformanceTracker(
             self.logger, n_plus_one_threshold=performance_threshold
         )
@@ -187,7 +190,7 @@ class Session:
             self.logger,
             sql=sql,
             params=redacted,
-            threshold_ms=200,
+            threshold_ms=self.slow_query_ms,
             on_complete=_record,
         ):
             return self.adapter.execute(sql, param_list)
@@ -242,6 +245,17 @@ class Session:
         """
 
         return self.performance.summary()
+
+    def export_query_stats(
+        self, *, reset: bool = False, include_samples: bool = False
+    ) -> list[dict[str, object]]:
+        stats = self.performance.export(include_samples=include_samples)
+        if reset:
+            self.performance.reset()
+        return stats
+
+    def reset_query_stats(self) -> None:
+        self.performance.reset()
 
     # ------------------------------------------------------------------ #
     @contextmanager

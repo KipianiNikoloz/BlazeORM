@@ -9,6 +9,7 @@ from typing import Any, Iterable, Sequence
 
 from ..dialects.postgres import PostgresDialect
 from ..utils import get_logger, time_call
+from ..utils.performance import resolve_slow_query_ms
 from .base import (
     AdapterConfigurationError,
     AdapterConnectionError,
@@ -39,10 +40,11 @@ class PostgresAdapter(DatabaseAdapter):
     Adapter wrapping the psycopg PostgreSQL driver.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, slow_query_ms: int | None = None) -> None:
         self.dialect = PostgresDialect()
         self._state: PostgresConnectionState | None = None
         self.logger = get_logger("adapters.postgres")
+        self.slow_query_ms = resolve_slow_query_ms(default=100, override=slow_query_ms)
 
     def connect(self, config: ConnectionConfig) -> Any:
         driver = _load_driver()
@@ -99,6 +101,7 @@ class PostgresAdapter(DatabaseAdapter):
             self.logger,
             sql=sql,
             params=self._redact(params),
+            threshold_ms=self.slow_query_ms,
         ):
             cursor.execute(sql, params)
         return cursor
@@ -113,7 +116,13 @@ class PostgresAdapter(DatabaseAdapter):
         seq = list(seq_of_params)
         for params in seq:
             self._validate_params(sql, params)
-        with time_call("postgres.executemany", self.logger, sql=sql, params="bulk"):
+        with time_call(
+            "postgres.executemany",
+            self.logger,
+            sql=sql,
+            params="bulk",
+            threshold_ms=self.slow_query_ms,
+        ):
             cursor.executemany(sql, seq)
         return cursor
 

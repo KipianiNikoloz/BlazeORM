@@ -84,3 +84,15 @@ def test_execute_with_params_without_placeholders_raises(tmp_path):
     with pytest.raises(AdapterExecutionError):
         adapter.execute("INSERT INTO t DEFAULT VALUES", (1,))
     adapter.close()
+
+
+def test_adapter_slow_query_ms_uses_env(monkeypatch):
+    monkeypatch.setenv("BLAZE_SLOW_QUERY_MS", "175")
+    adapter = SQLiteAdapter()
+    assert adapter.slow_query_ms == 175
+
+
+def test_adapter_slow_query_ms_override(monkeypatch):
+    monkeypatch.setenv("BLAZE_SLOW_QUERY_MS", "175")
+    adapter = SQLiteAdapter(slow_query_ms=90)
+    assert adapter.slow_query_ms == 90

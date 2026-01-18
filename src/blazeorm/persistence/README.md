@@ -12,7 +12,7 @@ What Lives Here
 Key Behaviors
 -------------
 - Session lifecycle:
-  - `Session(adapter, connection_config|dsn, autocommit=False, cache_backend, performance_threshold)` initializes adapter and performance tracker.
+  - `Session(adapter, connection_config|dsn, autocommit=False, cache_backend, performance_threshold, slow_query_ms)` initializes adapter, slow-query threshold, and performance tracker.
   - Context-managed (`with session:`) binds a ContextVar for implicit query execution.
   - `begin/commit/rollback` wrap the adapter transaction manager; autocommit triggers immediate commit after `add/delete` when enabled.
 - Execution:
@@ -29,9 +29,9 @@ Usage Notes
 -----------
 - Always bind operations to a session; manager iteration inside `with session:` reuses the same connection/identity map.
 - DSN/ConnectionConfig supports autocommit, isolation level, timeouts; adapters enforce transaction semantics.
-- Performance stats available via `Session.query_stats()`.
+- Slow-query logging threshold defaults to 200ms or `BLAZE_SLOW_QUERY_MS`; override per session with `slow_query_ms`.
+- Performance stats available via `Session.query_stats()`, `Session.export_query_stats(reset=..., include_samples=...)`, and `Session.reset_query_stats()`.
 
 Testing References
 ------------------
 - `tests/persistence/test_session.py`, `tests/persistence/test_many_to_many.py`, `tests/query/test_queryset_execution.py`, `tests/performance/test_n_plus_one.py`.
-
