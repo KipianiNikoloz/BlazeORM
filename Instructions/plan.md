@@ -27,6 +27,7 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: `src/blazeorm/schema/builder.py`, `schema` tests, README updates if needed.
 - Tests: `tests/schema/*`, additional cases for FK/index rendering.
 - Update: document new coverage and residual limitations in `current_state.md`/`known_gaps.md`.
+- Status: completed. SchemaBuilder now emits FK constraints (including m2m join tables) and create/drop index SQL with warnings; schema tests updated and docs refreshed; migration version inserts use dialect placeholders.
 
 5) Performance/observability exports and slow-query configuration
 - Goal: add export/reset hooks for `PerformanceTracker` and configurable slow-query thresholds per env/session/adapter.

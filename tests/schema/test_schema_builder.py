@@ -1,6 +1,6 @@
 import logging
 
-from blazeorm.core import IntegerField, ManyToManyField, Model, StringField
+from blazeorm.core import ForeignKey, IntegerField, ManyToManyField, Model, StringField
 from blazeorm.dialects import SQLiteDialect
 from blazeorm.schema import SchemaBuilder
 
@@ -16,6 +16,19 @@ class User(Model):
 class Group(Model):
     name = StringField(nullable=False)
     members = ManyToManyField(User, related_name="groups")
+
+
+class Author(Model):
+    name = StringField(nullable=False)
+
+
+class Post(Model):
+    title = StringField()
+    author = ForeignKey(Author, related_name="posts", on_delete="CASCADE")
+
+
+class Indexed(Model):
+    slug = StringField(index=True)
 
 
 def test_create_table_sql():
@@ -43,3 +56,23 @@ def test_m2m_through_table_sql():
     sql = stmts[0]
     assert "CREATE TABLE IF NOT EXISTS" in sql
     assert "user_id" in sql and "group_id" in sql
+    assert "FOREIGN KEY" in sql
+
+
+def test_create_table_sql_includes_foreign_keys():
+    sql = builder.create_table_sql(Post)
+    assert 'FOREIGN KEY ("author")' in sql
+    assert 'REFERENCES "author" ("id")' in sql
+    assert "ON DELETE CASCADE" in sql
+
+
+def test_create_index_sql():
+    sql = builder.create_index_sql(Indexed)
+    assert sql == ['CREATE INDEX IF NOT EXISTS "idx_indexed_slug" ON "indexed" ("slug")']
+
+
+def test_drop_index_sql_logs_warning(caplog):
+    caplog.set_level(logging.WARNING, logger="blazeorm.schema.builder")
+    sql = builder.drop_index_sql(Indexed)
+    assert sql == ['DROP INDEX IF EXISTS "idx_indexed_slug"']
+    assert any("DROP INDEX generated" in record.message for record in caplog.records)
