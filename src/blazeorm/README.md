@@ -34,10 +34,9 @@ Quick Start (High Level)
 3. Run queries with `session.query(Model)` or within `with session:` to reuse the same transaction/connection and identity map.
 4. Use `select_related`/`prefetch_related` to avoid N+1 queries (including nested and many-to-many paths).
 5. Apply schema changes via `schema.MigrationEngine` using SQL from `schema.SchemaBuilder`.
-6. Observe/log performance using `Session.query_stats()` and structured logging utilities.
+6. Observe/log performance using `Session.query_stats()`/`Session.export_query_stats()` and structured logging utilities; slow-query logging honors `BLAZE_SLOW_QUERY_MS`.
 
 Testing & Compliance
 --------------------
 - Codebase targets Python 3.9+ and is kept black/ruff/isort/mypy/pytest friendly.
 - Tests under `tests/` exercise all modules, including adapters, query execution, persistence, schema, security, caching, hooks, performance, and examples.
-

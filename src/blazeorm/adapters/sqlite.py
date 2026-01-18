@@ -10,6 +10,7 @@ from typing import Any, Iterable, Sequence
 
 from ..dialects.sqlite import SQLiteDialect
 from ..utils import get_logger, time_call
+from ..utils.performance import resolve_slow_query_ms
 from .base import AdapterConnectionError, AdapterExecutionError, ConnectionConfig, DatabaseAdapter
 
 
@@ -24,10 +25,11 @@ class SQLiteAdapter(DatabaseAdapter):
     Adapter wrapping the Python stdlib sqlite3 module.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, slow_query_ms: int | None = None) -> None:
         self.dialect = SQLiteDialect()
         self._state: SQLiteConnectionState | None = None
         self.logger = get_logger("adapters.sqlite")
+        self.slow_query_ms = resolve_slow_query_ms(default=100, override=slow_query_ms)
 
     # ------------------------------------------------------------------ #
     # Connection management
@@ -81,7 +83,13 @@ class SQLiteAdapter(DatabaseAdapter):
         cursor = connection.cursor()
         params = params or ()
         self._validate_params(sql, params)
-        with time_call("sqlite.execute", self.logger, sql=sql, params=self._redact(params)):
+        with time_call(
+            "sqlite.execute",
+            self.logger,
+            sql=sql,
+            params=self._redact(params),
+            threshold_ms=self.slow_query_ms,
+        ):
             cursor.execute(sql, params)
         return cursor
 
@@ -93,7 +101,13 @@ class SQLiteAdapter(DatabaseAdapter):
         seq = list(seq_of_params)
         for params in seq:
             self._validate_params(sql, params)
-        with time_call("sqlite.executemany", self.logger, sql=sql, params="bulk"):
+        with time_call(
+            "sqlite.executemany",
+            self.logger,
+            sql=sql,
+            params="bulk",
+            threshold_ms=self.slow_query_ms,
+        ):
             cursor.executemany(sql, seq)
         return cursor
 

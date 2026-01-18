@@ -34,3 +34,4 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: `src/blazeorm/utils/performance.py`, `session` integration, docs/tests under `tests/performance/`.
 - Tests: performance unit tests; session regression tests.
 - Update: note new features and any remaining observability gaps in `current_state.md`.
+- Status: completed. Added export/reset hooks for performance stats, session-level export/reset helpers, and configurable slow-query thresholds via `BLAZE_SLOW_QUERY_MS` or per adapter/session; tests and docs updated.

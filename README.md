@@ -80,7 +80,8 @@ engine.apply("blog", "0001", ops)
 
 ### Performance & Observability
 - Structured logging with correlation IDs via `blazeorm.utils.logging.configure_logging`.
-- `PerformanceTracker` records SQL timings and warns on N+1 patterns; inspect with `Session.query_stats()`.
+- `PerformanceTracker` records SQL timings and warns on N+1 patterns; inspect with `Session.query_stats()` or `Session.export_query_stats(reset=...)`.
+- Slow-query logging uses a configurable threshold (`BLAZE_SLOW_QUERY_MS` or `Session(..., slow_query_ms=...)`).
 
 ### Example Blog App
 - Located in `examples/blog_app`.
