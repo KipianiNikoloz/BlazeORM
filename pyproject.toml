@@ -61,8 +61,16 @@ line_length = 100
 [tool.mypy]
 python_version = "3.9"
 strict = false
-ignore_missing_imports = true
+ignore_missing_imports = false
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+  "psycopg",
+  "pymysql",
+  "MySQLdb",
+]
+ignore_missing_imports = true

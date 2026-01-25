@@ -238,6 +238,7 @@ class DatabaseAdapter(Protocol):
     """
 
     dialect: Dialect
+    slow_query_ms: int
 
     def connect(self, config: ConnectionConfig) -> Any:
         """

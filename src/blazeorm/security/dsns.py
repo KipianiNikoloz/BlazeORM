@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
+from .redaction import redact_query_params
+
 
 @dataclass
 class DSNConfig:
@@ -35,7 +37,7 @@ class DSNConfig:
         if self.port:
             netloc += f":{self.port}"
 
-        query_string = urlencode(self.query) if self.query else ""
+        query_string = urlencode(redact_query_params(self.query)) if self.query else ""
 
         # Build manually so we retain the double slash prefix even when netloc is empty
         result = f"{self.driver}://"

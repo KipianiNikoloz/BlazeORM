@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -8,6 +9,7 @@ from blazeorm.persistence import Session
 from blazeorm.schema import MigrationEngine, MigrationOperation
 from blazeorm.security.dsns import parse_dsn
 from blazeorm.security.migrations import confirm_destructive_operation
+from blazeorm.security.redaction import redact_params
 
 
 def test_parse_dsn_and_redact():
@@ -27,6 +29,22 @@ def test_connection_config_from_dsn_redacts():
     config = ConnectionConfig.from_dsn("postgres://user:secret@localhost:5432/database")
     assert config.dsn is not None
     assert config.redacted_dsn() == "postgres://user:***@localhost:5432/database"
+
+
+def test_connection_config_redacts_sensitive_query_params():
+    dsn = (
+        "postgres://user:secret@localhost:5432/database"
+        "?password=hunter2&sslkey=/tmp/key.pem&ssl_ca=/tmp/ca.pem&token=abc&sslmode=require"
+    )
+    config = ConnectionConfig.from_dsn(dsn)
+    redacted = config.redacted_dsn()
+    parsed = urlparse(redacted)
+    query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+    assert query["password"] == "***"
+    assert query["sslkey"] == "***"
+    assert query["ssl_ca"] == "***"
+    assert query["token"] == "***"
+    assert query["sslmode"] == "require"
 
 
 def test_connection_config_from_env(monkeypatch):
@@ -72,3 +90,20 @@ def test_destructive_migration_operation_requires_force(tmp_path, caplog):
     operations[0].force = True
     engine.apply("app", "0002_drop_force", operations)
     assert any("Destructive migration detected" in record.message for record in caplog.records)
+
+
+def test_redact_params_masks_sensitive_values():
+    params = [
+        "plain",
+        "password=hunter2",
+        {"token": "abc", "count": 1},
+        ("Bearer abc",),
+        b"secret=bytes",
+    ]
+    redacted = redact_params(params)
+    assert redacted[0] == "plain"
+    assert redacted[1] == "***"
+    assert redacted[2]["token"] == "***"
+    assert redacted[2]["count"] == 1
+    assert redacted[3][0] == "***"
+    assert redacted[4] == "***"
