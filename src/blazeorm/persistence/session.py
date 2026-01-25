@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Any, Iterable, Optional, Type
 
-from ..adapters.base import ConnectionConfig, DatabaseAdapter
+from ..adapters.base import ConnectionConfig, Cursor, DatabaseAdapter
 from ..cache import CacheBackend, NoOpCache
 from ..core.model import Model
 from ..core.relations import ManyToManyField, relation_registry
@@ -179,7 +179,7 @@ class Session:
         data = self._row_to_dict(cursor, row)
         return self._materialize(model, data)
 
-    def execute(self, sql: str, params: Iterable[Any] | None = None):
+    def execute(self, sql: str, params: Iterable[Any] | None = None) -> Cursor:
         param_list = list(params or [])
         redacted = self._redact(param_list)
 
@@ -447,7 +447,7 @@ class Session:
             self.adapter.connect(self.connection_config)
 
     @staticmethod
-    def _row_to_dict(cursor, row) -> dict[str, Any]:
+    def _row_to_dict(cursor: Cursor, row: Any) -> dict[str, Any]:
         if hasattr(row, "keys"):
             return dict(row)
         if hasattr(cursor, "description"):
