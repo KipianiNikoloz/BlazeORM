@@ -5,9 +5,12 @@ Relationship field implementations and registry utilities.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 from .fields import Field
+
+if TYPE_CHECKING:
+    from .model import Model
 
 
 class RelationshipError(RuntimeError):
@@ -23,7 +26,7 @@ class RelatedField(Field):
 
     def __init__(
         self,
-        to: Type | str,
+        to: Type["Model"] | str,
         *,
         related_name: Optional[str] = None,
         on_delete: str = "CASCADE",
@@ -35,9 +38,9 @@ class RelatedField(Field):
         self.to = to
         self.related_name = related_name
         self.on_delete = on_delete
-        self.remote_model: Optional[Type] = to if isinstance(to, type) else None
+        self.remote_model: Optional[Type["Model"]] = to if isinstance(to, type) else None
 
-    def contribute_to_class(self, model: Type, name: str) -> None:
+    def contribute_to_class(self, model: Type["Model"], name: str) -> None:
         super().contribute_to_class(model, name)
 
     def __get__(self, instance, owner=None):
@@ -49,7 +52,7 @@ class RelatedField(Field):
             return cache[name]
         return super().__get__(instance, owner)
 
-    def resolve_model(self, model: Type) -> None:
+    def resolve_model(self, model: Type["Model"]) -> None:
         self.remote_model = model
 
 
@@ -58,7 +61,7 @@ class ForeignKey(RelatedField):
 
     def __init__(
         self,
-        to: Type | str,
+        to: Type["Model"] | str,
         *,
         related_name: Optional[str] = None,
         on_delete: str = "CASCADE",
@@ -83,7 +86,7 @@ class OneToOneField(ForeignKey):
     relation_type = "one-to-one"
 
     def __init__(
-        self, to: Type | str, *, related_name: Optional[str] = None, **kwargs: Any
+        self, to: Type["Model"] | str, *, related_name: Optional[str] = None, **kwargs: Any
     ) -> None:
         kwargs.setdefault("unique", True)
         super().__init__(to, related_name=related_name, **kwargs)
@@ -95,7 +98,11 @@ class ManyToManyManager:
     """
 
     def __init__(
-        self, field: "ManyToManyField", instance, source_model: Type, accessor_name: str
+        self,
+        field: "ManyToManyField",
+        instance,
+        source_model: Type["Model"],
+        accessor_name: str,
     ) -> None:
         self.field = field
         self.instance = instance
@@ -122,14 +129,14 @@ class ManyToManyManager:
         # Column for the related model (remote_model)
         return self.field.right_column(self._field_model())
 
-    def _field_model(self) -> Type:
+    def _field_model(self) -> Type["Model"]:
         model = self.field.model
         if model is None:
             raise RuntimeError("Many-to-many field is not bound to a model.")
         return model
 
-    def _related_pk_column(self, related_model) -> str:
-        pk_field = related_model._meta.primary_key
+    def _related_pk_column(self, related_model: Type["Model"]) -> str:
+        pk_field: Field | None = related_model._meta.primary_key
         if pk_field is None:
             return "id"
         return pk_field.column_name()
@@ -260,14 +267,14 @@ class ManyToManyDescriptor:
     def __init__(
         self,
         field: "ManyToManyField",
-        source_model: Optional[Type] = None,
+        source_model: Optional[Type["Model"]] = None,
         accessor_name: Optional[str] = None,
     ) -> None:
         self.field = field
         resolved_source = source_model or field.model
         if resolved_source is None:
             raise RuntimeError("Many-to-many field is not bound to a model.")
-        self.source_model: Type = resolved_source
+        self.source_model: Type["Model"] = resolved_source
         resolved_accessor = accessor_name or field.name
         if resolved_accessor is None:
             raise RuntimeError("Many-to-many field accessor name is not set.")
@@ -287,7 +294,7 @@ class ManyToManyField(RelatedField):
 
     def __init__(
         self,
-        to: Type | str,
+        to: Type["Model"] | str,
         *,
         related_name: Optional[str] = None,
         through: Optional[str] = None,
@@ -301,7 +308,7 @@ class ManyToManyField(RelatedField):
         self.through = through
         self.db_table = db_table
 
-    def contribute_to_class(self, model: Type, name: str) -> None:
+    def contribute_to_class(self, model: Type["Model"], name: str) -> None:
         self.name = name
         self.model = model
         setattr(model, name, ManyToManyDescriptor(self, accessor_name=name))
@@ -309,7 +316,7 @@ class ManyToManyField(RelatedField):
         if self.db_table:
             model._meta.m2m_through_tables[name] = self.db_table
 
-    def through_table(self, model: Type) -> str:
+    def through_table(self, model: Type["Model"]) -> str:
         if self.db_table:
             return self.db_table
         return f"{model._meta.table_name}_{self.remote_table_name()}"
@@ -320,21 +327,22 @@ class ManyToManyField(RelatedField):
             raise RuntimeError("Remote model not resolved for ManyToManyField.")
         return remote._meta.table_name
 
-    def left_column(self, model: Type) -> str:
+    def left_column(self, model: Type["Model"]) -> str:
         return f"{model._meta.table_name}_id"
 
-    def right_column(self, model: Type) -> str:
+    def right_column(self, model: Type["Model"]) -> str:
         return f"{self.remote_table_name()}_id"
 
     def remote_pk_column(self) -> str:
         remote = self.remote_model
         if remote is None or remote._meta.primary_key is None:
             return "id"
-        return remote._meta.primary_key.db_column or remote._meta.primary_key.name
+        pk_field: Field = remote._meta.primary_key
+        return pk_field.column_name()
 
 
 class RelatedAccessor:
-    def __init__(self, source_model: Type, field: RelatedField) -> None:
+    def __init__(self, source_model: Type["Model"], field: RelatedField) -> None:
         self.source_model = source_model
         self.field = field
 
@@ -347,7 +355,7 @@ class RelatedManager:
     Provides a QuerySet filtered by a parent instance for reverse relations.
     """
 
-    def __init__(self, source_model: Type, field: RelatedField, instance) -> None:
+    def __init__(self, source_model: Type["Model"], field: RelatedField, instance) -> None:
         self.model = source_model
         self.field = field
         self.instance = instance
@@ -365,17 +373,17 @@ class RelatedManager:
 
 class RelationRegistry:
     def __init__(self) -> None:
-        self.models: Dict[str, Type] = {}
-        self.pending_fields: List[Tuple[Type, RelatedField]] = []
+        self.models: Dict[str, Type["Model"]] = {}
+        self.pending_fields: List[Tuple[Type["Model"], RelatedField]] = []
         # Track many-to-many fields to support reverse lookups without installing descriptors.
-        self.m2m_reverse: Dict[Type, List[Tuple[Type, "ManyToManyField"]]] = defaultdict(list)
+        self.m2m_reverse: Dict[Type["Model"], List[Tuple[Type["Model"], "ManyToManyField"]]] = defaultdict(list)
 
-    def register_model(self, model: Type) -> None:
+    def register_model(self, model: Type["Model"]) -> None:
         label = self._label(model)
         self.models[label] = model
         self._resolve_pending()
 
-    def register_field(self, model: Type, field: RelatedField) -> None:
+    def register_field(self, model: Type["Model"], field: RelatedField) -> None:
         target = self._resolve_target(field.to)
         if target is None:
             self.pending_fields.append((model, field))
@@ -398,16 +406,16 @@ class RelationRegistry:
             self._attach_reverse_accessor(model, field)
         self.pending_fields = unresolved
 
-    def _resolve_target(self, target: Type | str) -> Optional[Type]:
+    def _resolve_target(self, target: Type["Model"] | str) -> Optional[Type["Model"]]:
         if isinstance(target, type):
             return target
         label = target.split(".")[-1]
         return self.models.get(label)
 
-    def _label(self, model: Type) -> str:
+    def _label(self, model: Type["Model"]) -> str:
         return model.__name__
 
-    def _attach_reverse_accessor(self, model: Type, field: RelatedField) -> None:
+    def _attach_reverse_accessor(self, model: Type["Model"], field: RelatedField) -> None:
         remote = field.remote_model
         if remote is None:
             return

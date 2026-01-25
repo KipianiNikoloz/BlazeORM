@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Sequence, cast
 
 from ..dialects.sqlite import SQLiteDialect
 from ..security.redaction import redact_params
 from ..utils import get_logger, time_call
 from ..utils.performance import resolve_slow_query_ms
-from .base import AdapterConnectionError, AdapterExecutionError, ConnectionConfig, DatabaseAdapter
+from .base import AdapterConnectionError, AdapterExecutionError, ConnectionConfig, Cursor, DatabaseAdapter
 
 
 @dataclass
@@ -79,9 +79,9 @@ class SQLiteAdapter(DatabaseAdapter):
     # ------------------------------------------------------------------ #
     # Execution helpers
     # ------------------------------------------------------------------ #
-    def execute(self, sql: str, params: Sequence[Any] | None = None) -> sqlite3.Cursor:
+    def execute(self, sql: str, params: Sequence[Any] | None = None) -> Cursor:
         connection = self._ensure_connection()
-        cursor = connection.cursor()
+        cursor = cast(Cursor, connection.cursor())
         params = params or ()
         self._validate_params(sql, params)
         with time_call(
@@ -96,9 +96,9 @@ class SQLiteAdapter(DatabaseAdapter):
 
     def executemany(
         self, sql: str, seq_of_params: Sequence[Sequence[Any]] | Iterable[Sequence[Any]]
-    ) -> sqlite3.Cursor:
+    ) -> Cursor:
         connection = self._ensure_connection()
-        cursor = connection.cursor()
+        cursor = cast(Cursor, connection.cursor())
         seq = list(seq_of_params)
         for params in seq:
             self._validate_params(sql, params)
@@ -130,7 +130,7 @@ class SQLiteAdapter(DatabaseAdapter):
         connection.rollback()
 
     # ------------------------------------------------------------------ #
-    def last_insert_id(self, cursor: sqlite3.Cursor, table: str, pk_column: str) -> Any:
+    def last_insert_id(self, cursor: Cursor, table: str, pk_column: str) -> Any:
         return cursor.lastrowid
 
     @staticmethod
