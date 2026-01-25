@@ -142,3 +142,32 @@ def test_session_validation_error_on_commit(tmp_path):
         session.commit()
     session.rollback()
     session.close()
+
+
+def test_session_export_query_stats_resets(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'stats.db'}")
+    session = Session(adapter, connection_config=config)
+    session.execute("SELECT 1")
+    stats = session.export_query_stats(reset=True)
+    assert stats
+    assert session.query_stats() == []
+    session.close()
+
+
+def test_session_slow_query_ms_from_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("BLAZE_SLOW_QUERY_MS", "250")
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'slow_env.db'}")
+    session = Session(adapter, connection_config=config)
+    assert session.slow_query_ms == 250
+    session.close()
+
+
+def test_session_slow_query_ms_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("BLAZE_SLOW_QUERY_MS", "250")
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'slow_override.db'}")
+    session = Session(adapter, connection_config=config, slow_query_ms=125)
+    assert session.slow_query_ms == 125
+    session.close()

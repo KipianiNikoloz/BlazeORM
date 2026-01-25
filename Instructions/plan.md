@@ -34,3 +34,10 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: `src/blazeorm/utils/performance.py`, `session` integration, docs/tests under `tests/performance/`.
 - Tests: performance unit tests; session regression tests.
 - Update: note new features and any remaining observability gaps in `current_state.md`.
+- Status: completed. Added export/reset hooks for performance stats, session-level export/reset helpers, and configurable slow-query thresholds via `BLAZE_SLOW_QUERY_MS` or per adapter/session; tests and docs updated.
+
+6) Package distribution and PyPI release pipeline
+- Goal: enable installing BlazeORM from PyPI with a reliable publish workflow (tagged releases).
+- Files: `.github/workflows/` (publish workflow), `pyproject.toml` (package metadata/versioning), `README.md`/`src/blazeorm/README.md` (install docs), possibly `CHANGELOG.md`.
+- Tests: build package, run CI, optional `twine check`/`pip install` smoke tests.
+- Update: reflect release pipeline status and install guidance in `current_state.md`/`known_gaps.md`.

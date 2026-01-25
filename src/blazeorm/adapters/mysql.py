@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from ..dialects.mysql import MySQLDialect
+from ..security.redaction import redact_params
 from ..utils import get_logger, time_call
+from ..utils.performance import resolve_slow_query_ms
 from .base import (
     AdapterConfigurationError,
     AdapterConnectionError,
@@ -20,7 +22,7 @@ from .base import (
 
 def _load_driver():
     try:
-        import pymysql  # type: ignore[import-untyped]
+        import pymysql
 
         return pymysql
     except ImportError:
@@ -44,10 +46,11 @@ class MySQLAdapter(DatabaseAdapter):
     Adapter wrapping a MySQL DB-API driver (PyMySQL or mysqlclient).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, slow_query_ms: int | None = None) -> None:
         self.dialect = MySQLDialect()
         self._state: MySQLConnectionState | None = None
         self.logger = get_logger("adapters.mysql")
+        self.slow_query_ms = resolve_slow_query_ms(default=100, override=slow_query_ms)
 
     def connect(self, config: ConnectionConfig) -> Any:
         driver = _load_driver()
@@ -118,7 +121,13 @@ class MySQLAdapter(DatabaseAdapter):
         cursor = connection.cursor()
         params = params or ()
         self._validate_params(sql, params)
-        with time_call("mysql.execute", self.logger, sql=sql, params=self._redact(params)):
+        with time_call(
+            "mysql.execute",
+            self.logger,
+            sql=sql,
+            params=self._redact(params),
+            threshold_ms=self.slow_query_ms,
+        ):
             cursor.execute(sql, params)
         return cursor
 
@@ -132,7 +141,13 @@ class MySQLAdapter(DatabaseAdapter):
         seq = list(seq_of_params)
         for params in seq:
             self._validate_params(sql, params)
-        with time_call("mysql.executemany", self.logger, sql=sql, params="bulk"):
+        with time_call(
+            "mysql.executemany",
+            self.logger,
+            sql=sql,
+            params="bulk",
+            threshold_ms=self.slow_query_ms,
+        ):
             cursor.executemany(sql, seq)
         return cursor
 
@@ -157,15 +172,7 @@ class MySQLAdapter(DatabaseAdapter):
 
     @staticmethod
     def _redact(params: Sequence[Any]) -> Sequence[Any]:
-        redacted = []
-        for value in params:
-            if isinstance(value, str) and any(
-                token in value.lower() for token in ("password", "secret", "token")
-            ):
-                redacted.append("***")
-            else:
-                redacted.append(value)
-        return redacted
+        return redact_params(params)
 
     @staticmethod
     def _count_placeholders(sql: str) -> int:

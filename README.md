@@ -80,7 +80,8 @@ engine.apply("blog", "0001", ops)
 
 ### Performance & Observability
 - Structured logging with correlation IDs via `blazeorm.utils.logging.configure_logging`.
-- `PerformanceTracker` records SQL timings and warns on N+1 patterns; inspect with `Session.query_stats()`.
+- `PerformanceTracker` records SQL timings and warns on N+1 patterns; inspect with `Session.query_stats()` or `Session.export_query_stats(reset=...)`.
+- Slow-query logging uses a configurable threshold (`BLAZE_SLOW_QUERY_MS` or `Session(..., slow_query_ms=...)`).
 
 ### Example Blog App
 - Located in `examples/blog_app`.
@@ -95,11 +96,12 @@ engine.apply("blog", "0001", ops)
 ## CI & Quality
 - GitHub Actions run pytest plus ruff/black/isort/mypy checks.
 - Note: mypy is currently configured to ignore type errors pending a full typing pass.
-- Integration tests for Postgres/MySQL run when `BLAZE_POSTGRES_DSN` / `BLAZE_MYSQL_DSN` are provided and drivers are installed; otherwise they skip.
+- Integration tests run in a dedicated CI job using Postgres/MySQL service containers with predefined DSNs.
 
 ## Testing
 - Run the suite: `python -m pytest`
 - Tests cover adapters, dialects, core models/relations, query compilation/execution, persistence, schema, security, caching, hooks, performance, and examples.
+- Local integration tests: start containers with `docker compose -f docker-compose.integration.yml up -d`, set `BLAZE_POSTGRES_DSN=postgresql://blaze:blaze@localhost:5439/blazeorm` and `BLAZE_MYSQL_DSN=mysql://blaze:blaze@localhost:3307/blazeorm`, then run `python -m pytest tests/integration`.
 
 ## Further Reading
 - `src/blazeorm/README.md` for package overview.

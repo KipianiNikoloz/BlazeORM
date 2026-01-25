@@ -16,6 +16,7 @@ Key Behaviors
   - `from_dsn/from_env` parse URLs, redact secrets in logs, apply timeouts/options/SSL settings, and provide descriptive labels.
   - `descriptive_label` is used for structured connection logging.
 - Adapters raise consistent exceptions for configuration, connection, execution, and transaction failures.
+- Adapters accept `slow_query_ms` (or env `BLAZE_SLOW_QUERY_MS`) to control slow-query logging thresholds.
 - SQLite adapter guards nested transactions and enforces parameter count.
 - Postgres adapter reconnects when connection is closed and skips `BEGIN` if autocommit is enabled.
 
@@ -23,7 +24,7 @@ Usage Notes
 -----------
 - Prefer `ConnectionConfig.from_dsn` to configure adapters; pass into `Session`.
 - Autocommit is optional; transactions are managed by `Session` and adapters.
-- Secrets are redacted automatically in logs via ConnectionConfig and adapter `_redact`.
+- Secrets are redacted automatically in logs via ConnectionConfig (including sensitive query params) and adapter/session parameter redaction helpers.
 - DSN query parameters can supply `autocommit`, `timeout`, `isolation_level`, `connect_timeout`, and SSL-related options (e.g., `sslmode`, `sslrootcert`, `ssl_ca`).
 
 Testing References
