@@ -33,3 +33,50 @@ jobs:
           BLAZE_POSTGRES_DSN: ${{ secrets.BLAZE_POSTGRES_DSN }}
           BLAZE_MYSQL_DSN: ${{ secrets.BLAZE_MYSQL_DSN }}
         run: python -m pytest
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: blaze
+          POSTGRES_PASSWORD: blaze
+          POSTGRES_DB: blazeorm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U blaze -d blazeorm"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: blaze
+          MYSQL_PASSWORD: blaze
+          MYSQL_DATABASE: blazeorm
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+          pip install "psycopg[binary]" "pymysql"
+      - name: Integration tests
+        env:
+          BLAZE_POSTGRES_DSN: postgresql://blaze:blaze@localhost:5432/blazeorm
+          BLAZE_MYSQL_DSN: mysql://blaze:blaze@localhost:3306/blazeorm
+        run: python -m pytest tests/integration
