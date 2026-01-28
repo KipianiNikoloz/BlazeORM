@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple
 
+from ..adapters.base import Cursor
 from ..core.relations import ManyToManyField, RelatedField, relation_registry
 from ..dialects.sqlite import SQLiteDialect
 from .compiler import SQLCompiler
@@ -135,7 +136,7 @@ class QuerySet:
         return QuerySet(**params)
 
     @staticmethod
-    def _row_to_dict(cursor, row) -> dict[str, Any]:
+    def _row_to_dict(cursor: Cursor, row: Any) -> dict[str, Any]:
         if hasattr(row, "keys"):
             return dict(row)
         if hasattr(cursor, "description"):
@@ -421,20 +422,21 @@ class QuerySet:
                 return accessor.model, accessor.field
 
         # Check many-to-many reverse map
-        for candidate, field in relation_registry.m2m_reverse.get(model, []):
-            if (field.related_name or f"{candidate.__name__.lower()}_set") == related_name:
-                return candidate, field
+        for candidate, m2m_field in relation_registry.m2m_reverse.get(model, []):
+            if (m2m_field.related_name or f"{candidate.__name__.lower()}_set") == related_name:
+                return candidate, m2m_field
 
         # Fallback: scan registry for non-M2M relations
         for candidate in relation_registry.models.values():
-            for field in candidate._meta.get_fields():
-                if not isinstance(field, RelatedField):
+            for candidate_field in candidate._meta.get_fields():
+                if not isinstance(candidate_field, RelatedField):
                     continue
                 if (
-                    field.remote_model is model
-                    and (field.related_name or f"{candidate.__name__.lower()}_set") == related_name
+                    candidate_field.remote_model is model
+                    and (candidate_field.related_name or f"{candidate.__name__.lower()}_set")
+                    == related_name
                 ):
-                    return candidate, field
+                    return candidate, candidate_field
         return None
 
     def _get_relation_field(self, model: type["Model"], path: str) -> RelatedField:

@@ -31,6 +31,7 @@ Usage Notes
 - DSN/ConnectionConfig supports autocommit, isolation level, timeouts; adapters enforce transaction semantics.
 - Slow-query logging threshold defaults to 200ms or `BLAZE_SLOW_QUERY_MS`; override per session with `slow_query_ms`.
 - Performance stats available via `Session.query_stats()`, `Session.export_query_stats(reset=..., include_samples=...)`, and `Session.reset_query_stats()`.
+- Session, identity map, and cache operations are guarded by locks for basic thread safety, but prefer a dedicated Session per thread.
 
 Testing References
 ------------------
