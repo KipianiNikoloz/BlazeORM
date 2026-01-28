@@ -376,7 +376,9 @@ class RelationRegistry:
         self.models: Dict[str, Type["Model"]] = {}
         self.pending_fields: List[Tuple[Type["Model"], RelatedField]] = []
         # Track many-to-many fields to support reverse lookups without installing descriptors.
-        self.m2m_reverse: Dict[Type["Model"], List[Tuple[Type["Model"], "ManyToManyField"]]] = defaultdict(list)
+        self.m2m_reverse: Dict[Type["Model"], List[Tuple[Type["Model"], "ManyToManyField"]]] = (
+            defaultdict(list)
+        )
 
     def register_model(self, model: Type["Model"]) -> None:
         label = self._label(model)
