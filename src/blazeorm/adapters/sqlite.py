@@ -12,7 +12,13 @@ from ..dialects.sqlite import SQLiteDialect
 from ..security.redaction import redact_params
 from ..utils import get_logger, time_call
 from ..utils.performance import resolve_slow_query_ms
-from .base import AdapterConnectionError, AdapterExecutionError, ConnectionConfig, Cursor, DatabaseAdapter
+from .base import (
+    AdapterConnectionError,
+    AdapterExecutionError,
+    ConnectionConfig,
+    Cursor,
+    DatabaseAdapter,
+)
 
 
 @dataclass
