@@ -41,3 +41,4 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Files: `.github/workflows/` (publish workflow), `pyproject.toml` (package metadata/versioning), `README.md`/`src/blazeorm/README.md` (install docs), possibly `CHANGELOG.md`.
 - Tests: build package, run CI, optional `twine check`/`pip install` smoke tests.
 - Update: reflect release pipeline status and install guidance in `current_state.md`/`known_gaps.md`.
+- Status: completed. Added tag-triggered release workflow for PyPI publishing, CI build checks, updated package URLs and install guidance.

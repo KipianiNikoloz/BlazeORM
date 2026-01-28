@@ -35,6 +35,7 @@ Quick Start (High Level)
 4. Use `select_related`/`prefetch_related` to avoid N+1 queries (including nested and many-to-many paths).
 5. Apply schema changes via `schema.MigrationEngine` using SQL from `schema.SchemaBuilder`.
 6. Observe/log performance using `Session.query_stats()`/`Session.export_query_stats()` and structured logging utilities; slow-query logging honors `BLAZE_SLOW_QUERY_MS`.
+7. Install from PyPI with `pip install blazeorm` after tagged releases are published.
 
 Testing & Compliance
 --------------------

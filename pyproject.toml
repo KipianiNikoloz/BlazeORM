@@ -13,7 +13,7 @@ authors = [
 ]
 license = { file = "LICENSE" }
 keywords = ["orm", "database", "sqlite", "postgres", "mysql", "eager loading", "migrations"]
-urls = { "Homepage" = "https://github.com/your-org/blazeorm", "Documentation" = "https://github.com/your-org/blazeorm" }
+urls = { "Homepage" = "https://github.com/KipianiNikoloz/BlazeORM", "Documentation" = "https://github.com/KipianiNikoloz/BlazeORM" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
