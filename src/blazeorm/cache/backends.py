@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Tuple, Type
 from threading import RLock
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Tuple, Type
 
 if TYPE_CHECKING:
     from ..core.model import Model

@@ -4,8 +4,8 @@ Identity map ensuring a single in-memory instance per row.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple, Type
 from threading import RLock
+from typing import Dict, Tuple, Type
 
 from ..core.model import Model
 
