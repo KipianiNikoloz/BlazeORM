@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from typing import Any, Iterable, Optional, Type
 from threading import RLock
+from typing import Any, Iterable, Optional, Type
 
 from ..adapters.base import ConnectionConfig, Cursor, DatabaseAdapter
 from ..cache import CacheBackend, NoOpCache
