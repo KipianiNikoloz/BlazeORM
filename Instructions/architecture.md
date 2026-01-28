@@ -24,7 +24,7 @@
 - `prefetch_related`: executes separate queries for specified relations; reverse and m2m paths are supported, including nested (`parent__child`). Related objects are bucketed by FK/through table values and cached on instances.
 
 ## Warnings / Risks
-- Thread safety: session, identity map, and caches are not designed for concurrent multi-threaded access.
+- Thread safety: session, identity map, and caches use locks for basic concurrency, but prefer one Session per thread for safety.
 - ContextVar reliance: m2m managers and managers require an active session in the context; using them without `with session:` raises runtime errors.
 - Cache consistency: caches are invalidated on delete/m2m mutations; bypassing session operations can leave stale caches.
 - Placeholder correctness: cross-dialect SQL must honor dialect placeholders; hard-coded `?` outside SQLite is incorrect (see `current_state.md`).

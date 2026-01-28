@@ -17,7 +17,7 @@ Update this file whenever behavior, coverage, or plans change.
 ## Maturity by Subsystem
 - Core models/fields/relations: **stable** (well tested; m2m implemented and cached).
 - Query compilation & eager loading: **stable** (select_related/prefetch including m2m) with cross-dialect SQL generation; relies on adapter placeholders.
-- Session/unit-of-work/transactions: **stable** with thread-safety assumptions.
+- Session/unit-of-work/transactions: **stable**; Session/IdentityMap/Cache guard state with locks, but prefer one Session per thread.
 - Adapters/dialects: **stable** for basic usage; reconnect/autocommit handling present for Postgres/MySQL; integration tests run in CI with containerized services and locally via `docker-compose.integration.yml`.
 - Schema/migrations: **stable** for table/join-table/index/foreign-key DDL with destructive-operation warnings; explicit migration operations remain required.
 - Caching & hooks: **stable** within single-threaded session context.
