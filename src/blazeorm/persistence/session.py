@@ -7,6 +7,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Any, Iterable, Optional, Type
+from threading import RLock
 
 from ..adapters.base import ConnectionConfig, Cursor, DatabaseAdapter
 from ..cache import CacheBackend, NoOpCache
@@ -55,6 +56,7 @@ class Session:
         self.identity_map = IdentityMap()
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)
+        self._lock = RLock()
         self._uow_snapshots: list[tuple[set[Model], set[Model], set[Model]]] = []
         self.cache = cache_backend or NoOpCache()
         from ..hooks import hooks
@@ -90,111 +92,121 @@ class Session:
 
     # ------------------------------------------------------------------ #
     def begin(self) -> None:
-        self._ensure_adapter_connected()
-        self.transaction_manager.begin()
-        self._snapshot_uow()
+        with self._lock:
+            self._ensure_adapter_connected()
+            self.transaction_manager.begin()
+            self._snapshot_uow()
 
     def commit(self) -> None:
-        if self.transaction_manager.depth == 0:
-            self.begin()
-        self.flush()
-        self.transaction_manager.commit()
-        self._discard_uow_snapshot()
-        if self.transaction_manager.depth == 0:
-            self.unit_of_work.clear()
-            self.hooks.fire("after_commit", None, session=self)
+        with self._lock:
+            if self.transaction_manager.depth == 0:
+                self.begin()
+            self.flush()
+            self.transaction_manager.commit()
+            self._discard_uow_snapshot()
+            if self.transaction_manager.depth == 0:
+                self.unit_of_work.clear()
+                self.hooks.fire("after_commit", None, session=self)
 
     def rollback(self) -> None:
-        self.transaction_manager.rollback()
-        self._restore_uow_snapshot()
+        with self._lock:
+            self.transaction_manager.rollback()
+            self._restore_uow_snapshot()
 
     def close(self) -> None:
-        self.adapter.close()
-        self.identity_map.clear()
-        self._uow_snapshots.clear()
-        self.performance.reset()
+        with self._lock:
+            self.adapter.close()
+            self.identity_map.clear()
+            self._uow_snapshots.clear()
+            self.performance.reset()
 
     # ------------------------------------------------------------------ #
     # Registration
     # ------------------------------------------------------------------ #
     def add(self, instance: Model) -> None:
-        self.unit_of_work.register_new(instance)
-        if self.autocommit:
-            self.commit()
+        with self._lock:
+            self.unit_of_work.register_new(instance)
+            if self.autocommit:
+                self.commit()
 
     def delete(self, instance: Model) -> None:
-        self.unit_of_work.register_deleted(instance)
-        if self.autocommit:
-            self.commit()
+        with self._lock:
+            self.unit_of_work.register_deleted(instance)
+            if self.autocommit:
+                self.commit()
 
     def mark_dirty(self, instance: Model) -> None:
-        self.unit_of_work.register_dirty(instance)
+        with self._lock:
+            self.unit_of_work.register_dirty(instance)
 
     # ------------------------------------------------------------------ #
     def flush(self) -> None:
-        self.unit_of_work.collect_dirty(self.identity_map.values())
-        for instance in list(self.unit_of_work.new):
-            self._persist_new(instance)
-            self.unit_of_work.new.discard(instance)
-        for instance in list(self.unit_of_work.dirty):
-            self._persist_dirty(instance)
-            self.unit_of_work.dirty.discard(instance)
-        for instance in list(self.unit_of_work.deleted):
-            self._persist_deleted(instance)
-            self.unit_of_work.deleted.discard(instance)
+        with self._lock:
+            self.unit_of_work.collect_dirty(self.identity_map.values())
+            for instance in list(self.unit_of_work.new):
+                self._persist_new(instance)
+                self.unit_of_work.new.discard(instance)
+            for instance in list(self.unit_of_work.dirty):
+                self._persist_dirty(instance)
+                self.unit_of_work.dirty.discard(instance)
+            for instance in list(self.unit_of_work.deleted):
+                self._persist_deleted(instance)
+                self.unit_of_work.deleted.discard(instance)
 
     # ------------------------------------------------------------------ #
     def get(self, model: Type[Model], **filters: Any) -> Optional[Model]:
-        if len(filters) != 1:
-            raise ValueError("Session.get currently supports exactly one filter.")
-        field_name, value = next(iter(filters.items()))
+        with self._lock:
+            if len(filters) != 1:
+                raise ValueError("Session.get currently supports exactly one filter.")
+            field_name, value = next(iter(filters.items()))
 
-        pk_field = model._meta.primary_key
-        if pk_field and field_name == pk_field.require_name():
-            cached = self.identity_map.get(model, value)
-            if cached is not None:
-                return cached
-            cached_payload = self.cache.get(model, value)
-            if cached_payload is not None:
-                instance = model(**cached_payload)
-                instance._initial_state = dict(instance._field_values)
-                self.identity_map.add(instance)
-                return instance
+            pk_field = model._meta.primary_key
+            if pk_field and field_name == pk_field.require_name():
+                cached = self.identity_map.get(model, value)
+                if cached is not None:
+                    return cached
+                cached_payload = self.cache.get(model, value)
+                if cached_payload is not None:
+                    instance = model(**cached_payload)
+                    instance._initial_state = dict(instance._field_values)
+                    self.identity_map.add(instance)
+                    return instance
 
-        field = model._meta.get_field(field_name)
-        column = field.column_name()
-        quoted_column = self.dialect.quote_identifier(column)
-        select_list = ", ".join(
-            self.dialect.quote_identifier(f.column_name()) for f in model._meta.get_fields()
-        )
-        placeholder = self.dialect.parameter_placeholder()
-        sql = (
-            f"SELECT {select_list} FROM {self.dialect.format_table(model._meta.table_name)} "
-            f"WHERE {quoted_column} = {placeholder} LIMIT 1"
-        )
-        cursor = self.execute(sql, (value,))
-        row = cursor.fetchone()
-        if not row:
-            return None
-        data = self._row_to_dict(cursor, row)
-        return self._materialize(model, data)
+            field = model._meta.get_field(field_name)
+            column = field.column_name()
+            quoted_column = self.dialect.quote_identifier(column)
+            select_list = ", ".join(
+                self.dialect.quote_identifier(f.column_name()) for f in model._meta.get_fields()
+            )
+            placeholder = self.dialect.parameter_placeholder()
+            sql = (
+                f"SELECT {select_list} FROM {self.dialect.format_table(model._meta.table_name)} "
+                f"WHERE {quoted_column} = {placeholder} LIMIT 1"
+            )
+            cursor = self.execute(sql, (value,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            data = self._row_to_dict(cursor, row)
+            return self._materialize(model, data)
 
     def execute(self, sql: str, params: Iterable[Any] | None = None) -> Cursor:
-        param_list = list(params or [])
-        redacted = self._redact(param_list)
+        with self._lock:
+            param_list = list(params or [])
+            redacted = self._redact(param_list)
 
-        def _record(elapsed_ms: float) -> None:
-            self.performance.record(sql, redacted, elapsed_ms)
+            def _record(elapsed_ms: float) -> None:
+                self.performance.record(sql, redacted, elapsed_ms)
 
-        with time_call(
-            "session.execute",
-            self.logger,
-            sql=sql,
-            params=redacted,
-            threshold_ms=self.slow_query_ms,
-            on_complete=_record,
-        ):
-            return self.adapter.execute(sql, param_list)
+            with time_call(
+                "session.execute",
+                self.logger,
+                sql=sql,
+                params=redacted,
+                threshold_ms=self.slow_query_ms,
+                on_complete=_record,
+            ):
+                return self.adapter.execute(sql, param_list)
 
     def query(self, model: Type[Model]):
         """
@@ -245,18 +257,21 @@ class Session:
         Return collected performance statistics for the current session.
         """
 
-        return self.performance.summary()
+        with self._lock:
+            return self.performance.summary()
 
     def export_query_stats(
         self, *, reset: bool = False, include_samples: bool = False
     ) -> list[dict[str, object]]:
-        stats = self.performance.export(include_samples=include_samples)
-        if reset:
-            self.performance.reset()
-        return stats
+        with self._lock:
+            stats = self.performance.export(include_samples=include_samples)
+            if reset:
+                self.performance.reset()
+            return stats
 
     def reset_query_stats(self) -> None:
-        self.performance.reset()
+        with self._lock:
+            self.performance.reset()
 
     # ------------------------------------------------------------------ #
     @contextmanager
