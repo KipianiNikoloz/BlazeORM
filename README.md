@@ -91,12 +91,13 @@ engine.apply("blog", "0001", ops)
 ## Installation
 - From source: `pip install .`
 - With optional extras: `pip install .[postgres]` or `pip install .[mysql]` to pull driver dependencies.
-- PyPI publishing is planned; once available, installation will be `pip install blazeorm`.
+- From PyPI: `pip install blazeorm` (published via tagged releases).
 
 ## CI & Quality
 - GitHub Actions run pytest plus ruff/black/isort/mypy checks.
 - Note: mypy is currently configured to ignore type errors pending a full typing pass.
 - Integration tests run in a dedicated CI job using Postgres/MySQL service containers with predefined DSNs.
+- Build artifacts are validated in CI; publishing occurs on tag pushes matching `v*`.
 
 ## Testing
 - Run the suite: `python -m pytest`
