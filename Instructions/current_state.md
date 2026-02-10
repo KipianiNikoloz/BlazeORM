@@ -28,14 +28,14 @@ Update this file whenever behavior, coverage, or plans change.
 - None recorded.
 
 ## Branch Reality
-- `main` is outdated (last change: float datatype). Active work is on branches; current HEAD is `chore/mypy-alignment` with all features/tests.
-- Assume HEAD reflects truth unless a branch states otherwise; do not base work from `main` without merging.
+- Current checked-out branch is `main` in this snapshot.
+- Assume the checked-out HEAD reflects truth unless a branch states otherwise.
 
 ## CI / Tooling Reality
 - CI (`.github/workflows/ci.yml`) runs ruff, black, isort, mypy, pytest; integration tests run in a dedicated job using Postgres/MySQL service containers. Local integration runs can use `docker-compose.integration.yml` with Postgres on 5439 and MySQL on 3307.
 - PyPI publish workflow added; tagged releases (`v*`) build and publish packages.
-- `pyproject.toml` sets mypy `strict = false` and `ignore_missing_imports = false` with overrides for optional drivers (`psycopg`, `pymysql`, `MySQLdb`); `no_implicit_optional`, `warn_return_any`, `check_untyped_defs`, and `disallow_any_generics` are enabled alongside warning flags (`warn_unused_ignores`, `warn_redundant_casts`, `warn_unreachable`, `warn_unused_configs`). File-level `# mypy: ignore-errors` directives have been removed and core/query/persistence/validation/schema typing fixes were applied, but typing remains lenient and needs further tightening.
-- Local runs of mypy/ruff/black/isort are clean after typing/lint fixes and unused-ignore cleanup; CI status unchanged.
+- `pyproject.toml` keeps mypy `strict = false` and `ignore_missing_imports = false` with warning flags plus `no_implicit_optional`, `warn_return_any`, `check_untyped_defs`, and `disallow_any_generics`. Optional-driver mypy overrides were removed by loading drivers dynamically (`importlib`) in adapters. File-level `# mypy: ignore-errors` directives remain removed.
+- Typing is tighter than before but still non-strict overall; next work is enabling stricter mypy settings incrementally.
 
 ## Expectations for Future Updates
 - When you change behavior or coverage, update this file: reflect new features, maturity shifts, fixed/new issues, CI/tooling changes, and branch status if relevant.

@@ -1,2 +1,2 @@
 # Known Gaps (Actionable)
-- Typing laxity: mypy remains non-strict; optional driver imports are still ignored via overrides. Further tightening (e.g., stricter Any usage, return types) remains.
+- Typing laxity: mypy remains non-strict (`strict = false`). Further tightening is still needed (incremental strict flags, narrower `Any` usage, stricter return typing).

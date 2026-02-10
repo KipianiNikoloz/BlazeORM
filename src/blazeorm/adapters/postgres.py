@@ -4,7 +4,9 @@ PostgreSQL database adapter implementation.
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any, Iterable, Sequence, cast
 
 from ..dialects.postgres import PostgresDialect
@@ -21,11 +23,9 @@ from .base import (
 )
 
 
-def _load_driver():
+def _load_driver() -> ModuleType | None:
     try:
-        import psycopg
-
-        return psycopg
+        return importlib.import_module("psycopg")
     except ImportError:
         return None
 
@@ -34,7 +34,7 @@ def _load_driver():
 class PostgresConnectionState:
     connection: Any
     config: ConnectionConfig
-    driver: Any
+    driver: ModuleType
 
 
 class PostgresAdapter(DatabaseAdapter):
