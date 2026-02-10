@@ -42,3 +42,10 @@ Keep this plan updated after each completed step. Each step must include goal, l
 - Tests: build package, run CI, optional `twine check`/`pip install` smoke tests.
 - Update: reflect release pipeline status and install guidance in `current_state.md`/`known_gaps.md`.
 - Status: completed. Added tag-triggered release workflow for PyPI publishing, CI build checks, updated package URLs and install guidance.
+
+7) Tighten optional-driver typing and remove remaining inline ignores
+- Goal: reduce mypy leniency by removing optional-driver `ignore_missing_imports` overrides and removing residual inline `# type: ignore` usage in runtime code.
+- Files: `pyproject.toml`, `src/blazeorm/adapters/mysql.py`, `src/blazeorm/adapters/postgres.py`, `src/blazeorm/adapters/sqlite.py`.
+- Tests: `mypy src`, `ruff check .`, targeted adapter pytest as needed.
+- Update: refresh `current_state.md` and `known_gaps.md` to show remaining strictness work.
+- Status: completed in code/config. Optional-driver imports now use `importlib` loading, mypy overrides were removed, and the last inline ignore in runtime adapter code was removed. Re-run local checks in project venv to confirm green.

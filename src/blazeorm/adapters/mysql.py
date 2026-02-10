@@ -4,7 +4,9 @@ MySQL database adapter implementation.
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any, Iterable, Sequence, cast
 
 from ..dialects.mysql import MySQLDialect
@@ -21,25 +23,20 @@ from .base import (
 )
 
 
-def _load_driver():
-    try:
-        import pymysql
-
-        return pymysql
-    except ImportError:
+def _load_driver() -> ModuleType | None:
+    for module_name in ("pymysql", "MySQLdb"):
         try:
-            import MySQLdb
-
-            return MySQLdb
+            return importlib.import_module(module_name)
         except ImportError:
-            return None
+            continue
+    return None
 
 
 @dataclass
 class MySQLConnectionState:
     connection: Any
     config: ConnectionConfig
-    driver: Any
+    driver: ModuleType
 
 
 class MySQLAdapter(DatabaseAdapter):
