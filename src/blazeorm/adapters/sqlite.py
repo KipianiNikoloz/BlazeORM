@@ -64,8 +64,9 @@ class SQLiteAdapter(DatabaseAdapter):
         connection.execute("PRAGMA foreign_keys = ON")
 
         if config.isolation_level:
-            # sqlite3 types expect specific literals; allow override and silence typing complaints.
-            connection.isolation_level = config.isolation_level  # type: ignore[assignment]
+            # Allow explicit override values from configuration even though sqlite stubs are narrow.
+            sqlite_connection = cast(Any, connection)
+            sqlite_connection.isolation_level = config.isolation_level
 
         self._state = SQLiteConnectionState(connection, config)
         return connection
