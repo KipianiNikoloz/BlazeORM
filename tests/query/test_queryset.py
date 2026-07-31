@@ -125,6 +125,44 @@ def test_case_insensitive_lookup_uses_active_dialect(dialect, quoted_column, pla
     assert params == ["%al%"]
 
 
+@pytest.mark.parametrize(
+    ("dialect", "table", "placeholder"),
+    [
+        (SQLiteDialect(), '"user"', "?"),
+        (PostgresDialect(), '"user"', "%s"),
+        (MySQLDialect(), "`user`", "%s"),
+    ],
+)
+def test_terminal_compilers_use_portable_sliced_probes(dialect, table, placeholder):
+    queryset = QuerySet(User, dialect=dialect).filter(age__gte=18).offset(1).limit(2)
+    compiler = queryset._compiler()
+
+    count_sql, count_params = compiler.compile_count()
+    exists_sql, exists_params = compiler.compile_exists()
+
+    assert count_sql == (
+        f"SELECT COUNT(*) FROM (SELECT 1 FROM {table} WHERE "
+        f"{dialect.quote_identifier('age')} >= {placeholder} "
+        f"{dialect.limit_clause(2, 1)}) AS blaze_count"
+    )
+    assert exists_sql == (
+        f"SELECT 1 FROM {table} WHERE {dialect.quote_identifier('age')} >= {placeholder} "
+        f"{dialect.limit_clause(1, 1)}"
+    )
+    assert count_params == exists_params == [18]
+
+
+def test_query_errors_are_publicly_exported():
+    from blazeorm import DoesNotExist as RootDoesNotExist
+    from blazeorm import MultipleObjectsReturned as RootMultipleObjectsReturned
+    from blazeorm import QueryError as RootQueryError
+    from blazeorm.query import DoesNotExist, MultipleObjectsReturned, QueryError
+
+    assert RootQueryError is QueryError
+    assert RootDoesNotExist is DoesNotExist
+    assert RootMultipleObjectsReturned is MultipleObjectsReturned
+
+
 def test_select_related_generates_join():
     qs = Post.objects.select_related("author")
     sql, params = qs.to_sql()

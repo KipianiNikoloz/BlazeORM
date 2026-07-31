@@ -1,14 +1,14 @@
 ## 1. Terminal Contract Tests
 
-- [ ] 1.1 Add failing execution tests for `first()` and exact-one `get()` behavior and errors.
-- [ ] 1.2 Add failing tests for sliced `count()` and `exists()` SQL/results across dialects.
-- [ ] 1.3 Add failing tests for manager delegation, public exports, and unbound session errors.
+- [x] 1.1 Add failing execution tests for `first()` and exact-one `get()` behavior and errors.
+- [x] 1.2 Add failing tests for sliced `count()` and `exists()` SQL/results across dialects.
+- [x] 1.3 Add failing tests for manager delegation, public exports, and unbound session errors.
 
 ## 2. Terminal Implementation
 
-- [ ] 2.1 Refactor shared QuerySet session resolution and bounded evaluation.
-- [ ] 2.2 Implement QuerySet and QueryManager terminal methods and public exceptions.
-- [ ] 2.3 Implement compiler count/existence probes and run focused/full tests.
+- [x] 2.1 Refactor shared QuerySet session resolution and bounded evaluation.
+- [x] 2.2 Implement QuerySet and QueryManager terminal methods and public exceptions.
+- [x] 2.3 Implement compiler count/existence probes and run focused/full tests.
 
 ## 3. Documentation and Completion
 

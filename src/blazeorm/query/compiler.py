@@ -73,9 +73,30 @@ class SQLCompiler:
 
         return " ".join(sql_parts), params
 
+    def compile_count(self) -> Tuple[str, List[Any]]:
+        inner_sql, params = self._compile_probe(limit=self.limit, offset=self.offset)
+        return f"SELECT COUNT(*) FROM ({inner_sql}) AS blaze_count", params
+
+    def compile_exists(self) -> Tuple[str, List[Any]]:
+        effective_limit = 1 if self.limit is None else min(self.limit, 1)
+        return self._compile_probe(limit=effective_limit, offset=self.offset)
+
     # Helpers -----------------------------------------------------------
     def _table_for_model(self, model: type["Model"]) -> str:
         return self.dialect.format_table(model._meta.table_name)
+
+    def _compile_probe(self, *, limit: int | None, offset: int | None) -> Tuple[str, List[Any]]:
+        sql_parts = ["SELECT 1", "FROM", self._table_for_model(self.model)]
+        params: List[Any] = []
+        if self.where and not self.where.is_empty():
+            where_sql, where_params = self._compile_q(self.where)
+            if where_sql:
+                sql_parts.extend(["WHERE", where_sql])
+                params.extend(where_params)
+        limit_clause = self.dialect.limit_clause(limit, offset)
+        if limit_clause:
+            sql_parts.append(limit_clause)
+        return " ".join(sql_parts), params
 
     def _qualified(self, table: str, column: str) -> str:
         return f"{table}.{self.dialect.quote_identifier(column)}"
