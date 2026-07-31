@@ -1,7 +1,7 @@
 ## 1. Compiler
 
-- [ ] 1.1 Add failing cross-dialect tests for update/delete SQL and all safety guards.
-- [ ] 1.2 Implement guarded portable bulk mutation compilation.
+- [x] 1.1 Add failing cross-dialect tests for update/delete SQL and all safety guards.
+- [x] 1.2 Implement guarded portable bulk mutation compilation.
 
 ## 2. Public API
 

@@ -42,6 +42,7 @@ class SQLCompiler:
         limit: int | None = None,
         offset: int | None = None,
         select_related: Tuple[str, ...] = (),
+        prefetch_related: Tuple[str, ...] = (),
     ) -> None:
         self.model = model
         self.dialect = dialect
@@ -50,6 +51,7 @@ class SQLCompiler:
         self.limit = limit
         self.offset = offset
         self.select_related = select_related
+        self.prefetch_related = prefetch_related
 
     def compile(self) -> Tuple[str, List[Any]]:
         select_list = self._build_select_list()
@@ -81,6 +83,33 @@ class SQLCompiler:
             f"SELECT {normalized_function}({value_alias}) FROM ({inner_sql}) AS {aggregate_alias}",
             params,
         )
+
+    def compile_update(self, values: dict[str, Any]) -> Tuple[str, List[Any]]:
+        self._validate_bulk_mutation()
+        if not values:
+            raise ValueError("Bulk update requires at least one field.")
+
+        assignments: List[str] = []
+        params: List[Any] = []
+        placeholder = self.dialect.parameter_placeholder()
+        for field_name, value in values.items():
+            field = self.model._meta.get_field(field_name)
+            if field.primary_key:
+                raise ValueError("Bulk update cannot modify a primary key field.")
+            assignments.append(
+                f"{self.dialect.quote_identifier(field.column_name())} = {placeholder}"
+            )
+            params.append(value)
+
+        where_sql, where_params = self._compile_q(self.where or Q())
+        params.extend(where_params)
+        table = self._table_for_model(self.model)
+        return f"UPDATE {table} SET {', '.join(assignments)} WHERE {where_sql}", params
+
+    def compile_delete(self) -> Tuple[str, List[Any]]:
+        self._validate_bulk_mutation()
+        where_sql, params = self._compile_q(self.where or Q())
+        return f"DELETE FROM {self._table_for_model(self.model)} WHERE {where_sql}", params
 
     def _compile_select(self, select_list: str, joins: List[str]) -> Tuple[str, List[Any]]:
         sql_parts: List[str] = [f"SELECT {select_list}", "FROM", self._table_for_model(self.model)]
@@ -116,6 +145,20 @@ class SQLCompiler:
     # Helpers -----------------------------------------------------------
     def _table_for_model(self, model: type["Model"]) -> str:
         return self.dialect.format_table(model._meta.table_name)
+
+    def _validate_bulk_mutation(self) -> None:
+        if self.where is None or self.where.is_empty():
+            raise ValueError("Bulk mutation requires at least one filter.")
+        if (
+            self.ordering
+            or self.limit is not None
+            or self.offset is not None
+            or self.select_related
+            or self.prefetch_related
+        ):
+            raise ValueError(
+                "Bulk mutation does not support ordering, slicing, or eager loading."
+            )
 
     def _compile_probe(self, *, limit: int | None, offset: int | None) -> Tuple[str, List[Any]]:
         sql_parts = ["SELECT 1", "FROM", self._table_for_model(self.model)]

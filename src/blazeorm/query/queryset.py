@@ -155,6 +155,7 @@ class QuerySet:
             limit=self._limit,
             offset=self._offset,
             select_related=self._select_related,
+            prefetch_related=self._prefetch_related,
         )
 
     def __iter__(self) -> Iterator["Model"]:

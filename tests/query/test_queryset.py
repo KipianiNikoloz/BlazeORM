@@ -224,6 +224,50 @@ def test_aggregate_compiler_rejects_invalid_function_and_field():
         compiler.compile_aggregate("MAX", "name")
 
 
+@pytest.mark.parametrize("dialect", [SQLiteDialect(), PostgresDialect(), MySQLDialect()])
+def test_bulk_mutation_compiler_uses_dialect_and_filter(dialect):
+    compiler = QuerySet(User, dialect=dialect).filter(age__lt=18)._compiler()
+    table = dialect.format_table("user")
+    name = dialect.quote_identifier("name")
+    age = dialect.quote_identifier("age")
+    placeholder = dialect.parameter_placeholder()
+
+    update_sql, update_params = compiler.compile_update({"name": "Minor"})
+    delete_sql, delete_params = compiler.compile_delete()
+
+    assert update_sql == f"UPDATE {table} SET {name} = {placeholder} WHERE {age} < {placeholder}"
+    assert update_params == ["Minor", 18]
+    assert delete_sql == f"DELETE FROM {table} WHERE {age} < {placeholder}"
+    assert delete_params == [18]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        QuerySet(User),
+        QuerySet(User).filter(age=20).order_by("name"),
+        QuerySet(User).filter(age=20).limit(1),
+        QuerySet(User).filter(age=20).offset(1),
+        QuerySet(Post).filter(title="x").select_related("author"),
+        QuerySet(User).filter(age=20).prefetch_related("posts"),
+    ],
+)
+def test_bulk_mutation_compiler_rejects_unsafe_query_shapes(query):
+    with pytest.raises(ValueError, match="Bulk mutation"):
+        query._compiler().compile_delete()
+
+
+def test_bulk_update_compiler_validates_values_and_primary_key():
+    compiler = QuerySet(User).filter(name="Alice")._compiler()
+
+    with pytest.raises(ValueError, match="at least one field"):
+        compiler.compile_update({})
+    with pytest.raises(KeyError, match="Unknown field 'missing'"):
+        compiler.compile_update({"missing": 1})
+    with pytest.raises(ValueError, match="primary key"):
+        compiler.compile_update({"id": 2})
+
+
 def test_query_errors_are_publicly_exported():
     from blazeorm import DoesNotExist as RootDoesNotExist
     from blazeorm import MultipleObjectsReturned as RootMultipleObjectsReturned
