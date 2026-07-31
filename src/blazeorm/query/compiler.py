@@ -194,16 +194,14 @@ class SQLCompiler:
             values = list(value)
             if not values:
                 return "1 = 0", []
-            placeholders = ", ".join(
-                self.dialect.parameter_placeholder() for _ in values
-            )
+            placeholders = ", ".join(self.dialect.parameter_placeholder() for _ in values)
             return f"{column} IN ({placeholders})", values
 
         if lookup == "isnull":
             if not isinstance(value, bool):
                 raise ValueError("'isnull' lookup requires a boolean.")
-            operator = "IS NULL" if value else "IS NOT NULL"
-            return f"{column} {operator}", []
+            null_operator = "IS NULL" if value else "IS NOT NULL"
+            return f"{column} {null_operator}", []
 
         if value is None:
             if lookup != "exact":
