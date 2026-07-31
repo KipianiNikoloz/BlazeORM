@@ -3,7 +3,9 @@
 All notable changes to this project will be documented here.
 
 ## [Unreleased]
-- No changes yet.
+- Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.
+- Added model lifecycle tracking for assigned-key inserts, loaded-instance updates, deletion, and autocommit parity.
+- Made the test suite fail on leaked database connections and ignored local coverage artifacts.
 
 ## [0.2.0] - 2026-07-31
 - Added cloned scalar and relationship field inheritance from abstract models, including conflict and primary-key rules.

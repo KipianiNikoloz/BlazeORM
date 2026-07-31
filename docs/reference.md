@@ -4,7 +4,7 @@
 
 `Model` classes collect ordered fields and attach an `objects` query manager. Supported scalar fields are `AutoField`, `IntegerField`, `FloatField`, `BooleanField`, `StringField`, and `DateTimeField`. Fields support primary keys, uniqueness, nullability, Python/database defaults, indexes, choices, validators, custom columns, and help text.
 
-`Model.full_clean()` runs field validation and the model's `clean()` hook. Instances expose `pk`, `to_dict()`, dirty tracking, lifecycle hook registration, and many-to-many mutation helpers.
+`Model.full_clean()` runs field validation and the model's `clean()` hook. Instances expose `pk`, `to_dict()`, dirty tracking, lifecycle hook registration, and many-to-many mutation helpers. `save(session=None)` inserts new instances or updates Session-loaded instances; `delete(session=None)` removes persisted instances. Both accept an explicit Session or use the current session context.
 
 Models with `Meta.abstract = True` contribute cloned scalar and relationship fields to abstract and concrete descendants without receiving an automatic primary key themselves. Concrete descendants get an automatic key only when no inherited or declared key exists. Subclass declarations override inherited names; ambiguous names from multiple abstract bases require an explicit override. Concrete multi-table inheritance is not supported.
 
@@ -23,6 +23,8 @@ Supported scalar lookups are `exact`, `iexact`, `gt`, `gte`, `lt`, `lte`, `conta
 `Session` owns the connection boundary, transactions, identity map, unit of work, cache, hooks, and performance tracker. Construct it with an adapter and either a `ConnectionConfig` or DSN. Use `with session:` to bind manager and relationship operations to the current context.
 
 New, dirty, and deleted instances flow through the unit of work. Commits validate and persist changes; rollbacks restore tracked state. Nested transactions use savepoints when supported.
+
+Instance methods delegate to this same unit of work, so validation, hooks, identity maps, caches, transactions, and backend dialect behavior remain centralized in Session. Application-assigned primary keys do not make a newly constructed model persisted; its first `save()` still inserts it. Autocommit sessions commit inserts, updates, and deletes immediately.
 
 `Session.get()` fetches by one field and reuses identity-map and second-level cache entries for primary-key lookups. `Session.query()` returns a session-bound QuerySet. Many-to-many helpers update through tables and invalidate related caches.
 

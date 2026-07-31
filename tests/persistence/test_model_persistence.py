@@ -20,11 +20,11 @@ def make_session(tmp_path, name="models.db", *, autocommit=False):
     session = Session(SQLiteAdapter(), connection_config=config, autocommit=autocommit)
     session.execute(
         'CREATE TABLE IF NOT EXISTS "account" '
-        '(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, balance INTEGER)'
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, balance INTEGER)"
     )
     session.execute(
         'CREATE TABLE IF NOT EXISTS "assigned_account" '
-        '(account_id INTEGER PRIMARY KEY, name TEXT NOT NULL)'
+        "(account_id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
     )
     return session
 
@@ -48,9 +48,10 @@ def test_save_new_assigned_primary_key_inserts(tmp_path):
     account.save(session=session)
     session.commit()
 
-    assert session.execute(
-        'SELECT name FROM "assigned_account" WHERE account_id = 42'
-    ).fetchone()[0] == "Grace"
+    assert (
+        session.execute('SELECT name FROM "assigned_account" WHERE account_id = 42').fetchone()[0]
+        == "Grace"
+    )
 
 
 def test_save_loaded_instance_updates(tmp_path):

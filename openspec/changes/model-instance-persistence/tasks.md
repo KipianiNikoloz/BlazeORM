@@ -8,10 +8,10 @@
 
 - [x] 2.1 Add private model lifecycle state and assign it at Session hydration and persistence boundaries.
 - [x] 2.2 Implement Model save/delete delegation and dirty autocommit parity.
-- [ ] 2.3 Run focused and full tests across existing dialect compiler coverage.
+- [x] 2.3 Run focused and full tests across existing dialect compiler coverage.
 
 ## 3. Documentation and Completion
 
-- [ ] 3.1 Update README, reference documentation, and Unreleased changelog.
-- [ ] 3.2 Run quality gates and validate the OpenSpec change.
+- [x] 3.1 Update README, reference documentation, and Unreleased changelog.
+- [x] 3.2 Run quality gates and validate the OpenSpec change.
 - [ ] 3.3 Synchronize specifications and archive the completed change.

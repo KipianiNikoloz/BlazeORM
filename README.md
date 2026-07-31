@@ -95,6 +95,7 @@ engine.apply("blog", "0001", ops)
 
 ### Transactions, Hooks, and M2M Helpers
 - Use `with session:` or `session.transaction()` for transactional scopes.
+- Call `instance.save()` or `instance.delete()` inside a session context, or pass `session=` explicitly; new instances insert and loaded instances update.
 - Hooks: `before/after_validate`, `before/after_save`, `before/after_delete`, `after_commit` fired by `Session`.
 - Many-to-many helpers: `Session.add_m2m/remove_m2m/clear_m2m` and `Model.m2m_add/remove/clear` manage join rows and cache invalidation.
 
