@@ -160,6 +160,7 @@ class Model(metaclass=ModelMeta):
         self._field_values: Dict[str, Any] = {}
         self._initial_state: Dict[str, Any] = {}
         self._related_cache: Dict[str, Any] = {}
+        self._persisted = False
 
         for field_obj in self._meta.get_fields():
             field_name = field_obj.require_name()
@@ -210,12 +211,27 @@ class Model(metaclass=ModelMeta):
             for name in self._field_values
         )
 
-    # Placeholder persistence hooks --------------------------------------
-    def save(self, *args: Any, **kwargs: Any) -> None:
-        raise NotImplementedError("Persistence layer must implement 'save'.")
+    # Persistence -------------------------------------------------------
+    def save(self, session=None) -> None:
+        from ..persistence.session import Session
 
-    def delete(self, *args: Any, **kwargs: Any) -> None:
-        raise NotImplementedError("Persistence layer must implement 'delete'.")
+        session = session or Session.current()
+        if session is None:
+            raise RuntimeError("Model.save requires an active Session.")
+        if self._persisted:
+            session.mark_dirty(self)
+        else:
+            session.add(self)
+
+    def delete(self, session=None) -> None:
+        from ..persistence.session import Session
+
+        session = session or Session.current()
+        if session is None:
+            raise RuntimeError("Model.delete requires an active Session.")
+        if not self._persisted:
+            raise ValueError("Cannot delete a model that has not been persisted.")
+        session.delete(self)
 
     # Validation --------------------------------------------------------
     def full_clean(self) -> None:
