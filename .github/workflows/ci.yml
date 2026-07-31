@@ -12,42 +12,43 @@ jobs:
         python-version: ["3.9", "3.11"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install .[dev]
+          version: "0.11.25"
+          enable-cache: true
+      - name: Sync dependencies
+        run: uv sync --frozen
       - name: Lint (ruff)
-        run: ruff check .
+        run: uv run --frozen ruff check .
       - name: Format check (black)
-        run: black --check .
+        run: uv run --frozen black --check .
       - name: Import sort check (isort)
-        run: isort --check-only .
+        run: uv run --frozen isort --check-only .
       - name: Type check (mypy)
-        run: mypy src
+        run: uv run --frozen mypy src
       - name: Tests
         env:
           BLAZE_POSTGRES_DSN: ${{ secrets.BLAZE_POSTGRES_DSN }}
           BLAZE_MYSQL_DSN: ${{ secrets.BLAZE_MYSQL_DSN }}
-        run: python -m pytest
+        run: uv run --frozen python -m pytest
 
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: "3.11"
+          version: "0.11.25"
+          enable-cache: true
       - name: Build package
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-          python -m build
-          twine check dist/*
+          uv sync --frozen
+          uv run --frozen python -m build
+          uv run --frozen twine check dist/*
 
   integration:
     runs-on: ubuntu-latest
@@ -81,17 +82,16 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: "3.11"
+          version: "0.11.25"
+          enable-cache: true
       - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install .[dev]
-          pip install "psycopg[binary]" "pymysql"
+        run: uv sync --frozen --group integration
       - name: Integration tests
         env:
           BLAZE_POSTGRES_DSN: postgresql://blaze:blaze@localhost:5432/blazeorm
           BLAZE_MYSQL_DSN: mysql://blaze:blaze@localhost:3306/blazeorm
-        run: python -m pytest tests/integration
+        run: uv run --frozen python -m pytest tests/integration
