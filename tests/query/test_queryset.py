@@ -1,7 +1,8 @@
 import pytest
 
 from blazeorm.core import ForeignKey, IntegerField, Model, StringField
-from blazeorm.query import Q
+from blazeorm.dialects import MySQLDialect, PostgresDialect, SQLiteDialect
+from blazeorm.query import Q, QuerySet
 
 
 class User(Model):
@@ -58,9 +59,70 @@ def test_queryset_null_equality_generates_is_null():
 
 
 def test_unsupported_lookup_raises():
-    qs = User.objects.filter(name__startswith="A")
-    with pytest.raises(ValueError):
+    qs = User.objects.filter(name__regex="^A")
+    with pytest.raises(ValueError, match="Unsupported lookup 'regex'"):
         qs.to_sql()
+
+
+@pytest.mark.parametrize(
+    ("lookup", "value", "fragment", "params"),
+    [
+        ("age__in", [18, 21], '"age" IN (?, ?)', [18, 21]),
+        ("age__in", [], "1 = 0", []),
+        ("age__isnull", True, '"age" IS NULL', []),
+        ("age__isnull", False, '"age" IS NOT NULL', []),
+    ],
+)
+def test_collection_and_null_lookups(lookup, value, fragment, params):
+    sql, actual_params = User.objects.filter(**{lookup: value}).to_sql()
+    assert fragment in sql
+    assert actual_params == params
+
+
+@pytest.mark.parametrize("value", ["abc", b"abc", 42])
+def test_in_lookup_rejects_non_collection_values(value):
+    with pytest.raises(ValueError, match="'in' lookup requires a non-string iterable"):
+        User.objects.filter(age__in=value).to_sql()
+
+
+def test_isnull_lookup_requires_boolean():
+    with pytest.raises(ValueError, match="'isnull' lookup requires a boolean"):
+        User.objects.filter(age__isnull=1).to_sql()
+
+
+@pytest.mark.parametrize(
+    ("lookup", "value", "fragment", "params"),
+    [
+        ("name__startswith", "Al", '"name" LIKE ?', ["Al%"]),
+        ("name__endswith", "ice", '"name" LIKE ?', ["%ice"]),
+        ("name__iexact", "ALICE", 'LOWER("name") = ?', ["alice"]),
+        ("name__icontains", "LI", 'LOWER("name") LIKE ?', ["%li%"]),
+    ],
+)
+def test_text_lookups(lookup, value, fragment, params):
+    sql, actual_params = User.objects.filter(**{lookup: value}).to_sql()
+    assert fragment in sql
+    assert actual_params == params
+
+
+@pytest.mark.parametrize("lookup", ["startswith", "endswith", "contains", "iexact", "icontains"])
+def test_text_lookups_reject_non_string_values(lookup):
+    with pytest.raises(ValueError, match=f"'{lookup}' lookup requires a string"):
+        User.objects.filter(**{f"name__{lookup}": 12}).to_sql()
+
+
+@pytest.mark.parametrize(
+    ("dialect", "quoted_column", "placeholder"),
+    [
+        (SQLiteDialect(), '"name"', "?"),
+        (PostgresDialect(), '"name"', "%s"),
+        (MySQLDialect(), "`name`", "%s"),
+    ],
+)
+def test_case_insensitive_lookup_uses_active_dialect(dialect, quoted_column, placeholder):
+    sql, params = QuerySet(User, dialect=dialect).filter(name__icontains="AL").to_sql()
+    assert f"LOWER({quoted_column}) LIKE {placeholder}" in sql
+    assert params == ["%al%"]
 
 
 def test_select_related_generates_join():

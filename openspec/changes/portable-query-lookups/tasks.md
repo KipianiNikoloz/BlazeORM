@@ -1,13 +1,13 @@
 ## 1. Lookup Contract Tests
 
-- [ ] 1.1 Add failing compiler tests for `in` and `isnull`, including empty and invalid values.
-- [ ] 1.2 Add failing cross-dialect tests for prefix, suffix, and case-insensitive text lookups.
+- [x] 1.1 Add failing compiler tests for `in` and `isnull`, including empty and invalid values.
+- [x] 1.2 Add failing cross-dialect tests for prefix, suffix, and case-insensitive text lookups.
 
 ## 2. Compiler Implementation
 
-- [ ] 2.1 Implement collection and null-state compilation with dialect placeholders and explicit validation.
-- [ ] 2.2 Implement portable text lookup compilation and correct `iexact`.
-- [ ] 2.3 Run focused query tests and the full unit suite.
+- [x] 2.1 Implement collection and null-state compilation with dialect placeholders and explicit validation.
+- [x] 2.2 Implement portable text lookup compilation and correct `iexact`.
+- [x] 2.3 Run focused query tests and the full unit suite.
 
 ## 3. Documentation and Completion
 

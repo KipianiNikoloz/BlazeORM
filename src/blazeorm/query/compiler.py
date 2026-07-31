@@ -4,6 +4,7 @@ SQL compilation utilities translating expressions into SQL strings.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, List, Tuple
 
 from ..core.relations import RelatedField
@@ -16,13 +17,13 @@ if TYPE_CHECKING:
 
 LOOKUP_OPERATORS = {
     "exact": "=",
-    "iexact": "LIKE",
     "gt": ">",
     "gte": ">=",
     "lt": "<",
     "lte": "<=",
-    "contains": "LIKE",
 }
+
+TEXT_LOOKUPS = {"contains", "startswith", "endswith", "iexact", "icontains"}
 
 
 class SQLCompiler:
@@ -187,19 +188,47 @@ class SQLCompiler:
         field = self.model._meta.get_field(field_name)
         column = self.dialect.quote_identifier(field.column_name())
 
+        if lookup == "in":
+            if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+                raise ValueError("'in' lookup requires a non-string iterable.")
+            values = list(value)
+            if not values:
+                return "1 = 0", []
+            placeholders = ", ".join(
+                self.dialect.parameter_placeholder() for _ in values
+            )
+            return f"{column} IN ({placeholders})", values
+
+        if lookup == "isnull":
+            if not isinstance(value, bool):
+                raise ValueError("'isnull' lookup requires a boolean.")
+            operator = "IS NULL" if value else "IS NOT NULL"
+            return f"{column} {operator}", []
+
         if value is None:
             if lookup != "exact":
                 raise ValueError("NULL comparison only supported for equality.")
             return f"{column} IS NULL", []
+
+        if lookup in TEXT_LOOKUPS:
+            if not isinstance(value, str):
+                raise ValueError(f"'{lookup}' lookup requires a string.")
+            placeholder = self.dialect.parameter_placeholder()
+            if lookup == "contains":
+                return f"{column} LIKE {placeholder}", [f"%{value}%"]
+            if lookup == "startswith":
+                return f"{column} LIKE {placeholder}", [f"{value}%"]
+            if lookup == "endswith":
+                return f"{column} LIKE {placeholder}", [f"%{value}"]
+            lowered_column = f"LOWER({column})"
+            if lookup == "iexact":
+                return f"{lowered_column} = {placeholder}", [value.lower()]
+            return f"{lowered_column} LIKE {placeholder}", [f"%{value.lower()}%"]
 
         operator = LOOKUP_OPERATORS.get(lookup)
         if operator is None:
             raise ValueError(f"Unsupported lookup '{lookup}'")
 
         placeholder = self.dialect.parameter_placeholder()
-        if lookup == "contains":
-            value = f"%{value}%"
-        if lookup == "iexact":
-            value = value.lower()
 
         return f"{column} {operator} {placeholder}", [value]
