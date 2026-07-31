@@ -311,9 +311,10 @@ def test_filtered_bulk_update_returns_count_and_clears_caches(tmp_path):
 
     assert affected == 2
     assert session.identity_map.values() == []
-    assert session.query(User).filter(age=20).order_by("id").values_list(
-        "name", flat=True
-    ) == ["Updated", "Updated"]
+    assert session.query(User).filter(age=20).order_by("id").values_list("name", flat=True) == [
+        "Updated",
+        "Updated",
+    ]
 
 
 def test_filtered_bulk_delete_can_be_rolled_back(tmp_path):
@@ -344,9 +345,7 @@ def test_bulk_mutations_bypass_instance_hooks(tmp_path):
     session = create_populated_user_session(tmp_path, "bulk-hooks.db")
     events = []
     hooks.register("before_save", lambda instance, **context: events.append("save"), model=User)
-    hooks.register(
-        "before_delete", lambda instance, **context: events.append("delete"), model=User
-    )
+    hooks.register("before_delete", lambda instance, **context: events.append("delete"), model=User)
     try:
         session.query(User).filter(name="Alice").update(age=31)
         session.query(User).filter(name="Bob").delete()

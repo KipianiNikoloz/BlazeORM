@@ -93,6 +93,7 @@ engine.apply("blog", "0001", ops)
 - `count()` and `exists()` use database-side aggregate/probe queries and respect QuerySet filters and slicing.
 - `values(*fields)` returns dictionaries and `values_list(*fields, flat=False)` returns tuples or single-field scalars without model hydration.
 - `sum(field)`, `average(field)`, `minimum(field)`, and `maximum(field)` calculate numeric summaries after applying filters and ordered slices.
+- Filtered QuerySets support set-based `update(**values)` and `delete()`; safety guards reject unfiltered, sliced, ordered, or eager-loaded mutations.
 - Terminal operations are available from both QuerySets and model managers inside an active session.
 
 ### Transactions, Hooks, and M2M Helpers

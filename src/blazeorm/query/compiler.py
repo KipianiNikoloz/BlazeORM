@@ -156,9 +156,7 @@ class SQLCompiler:
             or self.select_related
             or self.prefetch_related
         ):
-            raise ValueError(
-                "Bulk mutation does not support ordering, slicing, or eager loading."
-            )
+            raise ValueError("Bulk mutation does not support ordering, slicing, or eager loading.")
 
     def _compile_probe(self, *, limit: int | None, offset: int | None) -> Tuple[str, List[Any]]:
         sql_parts = ["SELECT 1", "FROM", self._table_for_model(self.model)]

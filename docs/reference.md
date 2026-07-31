@@ -30,6 +30,8 @@ Instance methods delegate to this same unit of work, so validation, hooks, ident
 
 `Session.refresh(instance)` bypasses caches and reloads every scalar field by primary key into the same Python object. It discards pending local scalar changes, clears relation caches, updates identity and second-level caches, and raises `DoesNotExist` if the row has disappeared.
 
+Filtered QuerySets expose `update(**values)` and `delete()` for one-statement set-based mutation. They return affected-row counts, clear Session identity and second-level caches after changes, and honor Session autocommit. For safety, bulk mutations require at least one filter and reject ordering, slicing, and eager loading. Bulk operations intentionally bypass model hydration, validation, lifecycle hooks, and managed timestamps; use instance methods when those behaviors are required.
+
 ## Adapters and Dialects
 
 SQLite, PostgreSQL, and MySQL adapters share connection, execution, transaction, parameter-validation, redaction, and slow-query behavior. `ConnectionConfig` parses DSNs and options including autocommit, isolation, timeouts, and backend SSL settings. Adapter failures use configuration, connection, execution, and transaction exception categories.
