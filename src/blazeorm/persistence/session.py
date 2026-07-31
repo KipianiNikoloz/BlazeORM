@@ -146,10 +146,53 @@ class Session:
         created = list(instances)
         if not created:
             return []
-        with self.transaction():
-            for instance in created:
-                self._persist_new(instance)
+        model = self._validate_bulk_create_instances(created)
+        if model._meta.abstract:
+            raise ValueError("Session.bulk_create requires a concrete model.")
+        snapshots = [
+            (
+                instance,
+                dict(instance._field_values),
+                dict(instance._initial_state),
+                dict(instance._related_cache),
+                instance._persisted,
+            )
+            for instance in created
+        ]
+        try:
+            with self.transaction():
+                for instance in created:
+                    self._persist_new(instance)
+        except Exception:
+            for instance, field_values, initial_state, related_cache, persisted in snapshots:
+                self.identity_map.remove(instance)
+                self._invalidate_cache(instance)
+                instance._field_values = field_values
+                instance._initial_state = initial_state
+                instance._related_cache = related_cache
+                instance._persisted = persisted
+            raise
         return created
+
+    @staticmethod
+    def _validate_bulk_create_instances(instances: list[Model]) -> type[Model]:
+        first = instances[0]
+        if not isinstance(first, Model):
+            raise TypeError("Session.bulk_create requires Model instances.")
+        model = first.__class__
+        seen: set[int] = set()
+        for instance in instances:
+            if not isinstance(instance, Model):
+                raise TypeError("Session.bulk_create requires Model instances.")
+            if instance.__class__ is not model:
+                raise ValueError("Session.bulk_create requires instances of the same model.")
+            identity = id(instance)
+            if identity in seen:
+                raise ValueError("Session.bulk_create cannot receive the same instance twice.")
+            seen.add(identity)
+            if instance._persisted:
+                raise ValueError("Session.bulk_create cannot create an already persisted instance.")
+        return model
 
     # ------------------------------------------------------------------ #
     def flush(self) -> None:

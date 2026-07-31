@@ -5,8 +5,8 @@
 
 ## 2. Safety and Lifecycle
 
-- [ ] 2.1 Add failing tests for input validation, hooks, nested transactions, atomic failures, and object restoration.
-- [ ] 2.2 Implement validation and failure-state restoration.
+- [x] 2.1 Add failing tests for input validation, hooks, nested transactions, atomic failures, and object restoration.
+- [x] 2.2 Implement validation and failure-state restoration.
 
 ## 3. Completion
 
