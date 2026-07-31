@@ -211,6 +211,58 @@ def test_manager_terminal_methods_use_context_session(tmp_path):
         assert User.objects.filter(name="Missing").exists() is False
 
 
+def test_values_returns_requested_fields_without_model_hydration(tmp_path):
+    session = create_populated_user_session(tmp_path, "values.db")
+
+    rows = (
+        session.query(User)
+        .filter(age=20)
+        .order_by("name")
+        .limit(2)
+        .values("name", "age")
+    )
+
+    assert rows == [{"name": "Bob", "age": 20}, {"name": "Cara", "age": 20}]
+    assert session.identity_map.values() == []
+
+
+def test_values_list_supports_tuples_flat_results_and_manager(tmp_path):
+    session = create_populated_user_session(tmp_path, "values-list.db")
+
+    assert session.query(User).order_by("id").values_list("name", "age") == [
+        ("Alice", 30),
+        ("Bob", 20),
+        ("Cara", 20),
+    ]
+    assert session.query(User).order_by("id").values_list("name", flat=True) == [
+        "Alice",
+        "Bob",
+        "Cara",
+    ]
+    with session:
+        assert User.objects.filter(age=20).order_by("name").values("name") == [
+            {"name": "Bob"},
+            {"name": "Cara"},
+        ]
+
+
+@pytest.mark.parametrize("method", ["values", "values_list"])
+def test_projections_require_fields_and_bound_session(method):
+    query = User.objects.all()
+
+    with pytest.raises(ValueError, match="at least one field"):
+        getattr(query, method)()
+    with pytest.raises(RuntimeError, match="requires a bound Session"):
+        getattr(query, method)("name")
+
+
+def test_values_list_flat_requires_exactly_one_field(tmp_path):
+    session = create_populated_user_session(tmp_path, "flat-error.db")
+
+    with pytest.raises(ValueError, match="exactly one field"):
+        session.query(User).values_list("name", "age", flat=True)
+
+
 @pytest.mark.parametrize("method", ["first", "get", "count", "exists"])
 def test_terminal_methods_require_bound_session(method):
     query = User.objects.all()

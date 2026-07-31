@@ -122,6 +122,18 @@ class QuerySet:
         sql, params = self._compiler().compile_exists()
         return session.execute(sql, params).fetchone() is not None
 
+    def values(self, *fields: str) -> list[dict[str, Any]]:
+        rows = self._evaluate_projection(fields)
+        return [dict(zip(fields, row)) for row in rows]
+
+    def values_list(self, *fields: str, flat: bool = False) -> list[Any]:
+        if flat and len(fields) != 1:
+            raise ValueError("values_list(flat=True) requires exactly one field.")
+        rows = self._evaluate_projection(fields)
+        if flat:
+            return [row[0] for row in rows]
+        return rows
+
     def _compiler(self) -> SQLCompiler:
         return SQLCompiler(
             model=self.model,
@@ -164,6 +176,18 @@ class QuerySet:
         if self._prefetch_related:
             self._prefetch_related_data(session, instances)
         return instances
+
+    def _evaluate_projection(self, field_names: tuple[str, ...]) -> list[Any]:
+        if not field_names:
+            raise ValueError("Projection requires at least one field.")
+        fields = [self.model._meta.get_field(name) for name in field_names]
+        session = self._require_session()
+        sql, params = self._compiler().compile_projection(field_names)
+        cursor = session.execute(sql, params)
+        return [
+            tuple(field.to_python(row[index]) for index, field in enumerate(fields))
+            for row in cursor.fetchall()
+        ]
 
     # Internal helpers --------------------------------------------------
     def _add_q(self, q_object: Q) -> Q:
@@ -548,3 +572,9 @@ class QueryManager:
 
     def exists(self) -> bool:
         return self.all().exists()
+
+    def values(self, *fields: str) -> list[dict[str, Any]]:
+        return self.all().values(*fields)
+
+    def values_list(self, *fields: str, flat: bool = False) -> list[Any]:
+        return self.all().values_list(*fields, flat=flat)
