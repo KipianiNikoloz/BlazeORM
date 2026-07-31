@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import RLock
 from typing import Any, Iterable, Optional, Type
@@ -26,6 +27,23 @@ from .unit_of_work import UnitOfWork
 _current_session: ContextVar["Session | None"] = ContextVar(
     "blazeorm_current_session", default=None
 )
+
+
+@dataclass
+class _ModelState:
+    field_values: dict[str, Any]
+    initial_state: dict[str, Any]
+    related_cache: dict[str, Any]
+    persisted: bool
+
+
+@dataclass
+class _SessionSnapshot:
+    new: set[Model]
+    dirty: set[Model]
+    deleted: set[Model]
+    model_states: dict[Model, _ModelState]
+    identity_instances: set[Model]
 
 
 class Session:
@@ -58,7 +76,7 @@ class Session:
         self.unit_of_work = UnitOfWork()
         self.transaction_manager = TransactionManager(adapter, self.dialect)
         self._lock = RLock()
-        self._uow_snapshots: list[tuple[set[Model], set[Model], set[Model]]] = []
+        self._uow_snapshots: list[_SessionSnapshot] = []
         self.cache = cache_backend or NoOpCache()
         from ..hooks import hooks
 
@@ -126,18 +144,21 @@ class Session:
     # ------------------------------------------------------------------ #
     def add(self, instance: Model) -> None:
         with self._lock:
+            self._capture_transaction_participant(instance)
             self.unit_of_work.register_new(instance)
             if self.autocommit:
                 self.commit()
 
     def delete(self, instance: Model) -> None:
         with self._lock:
+            self._capture_transaction_participant(instance)
             self.unit_of_work.register_deleted(instance)
             if self.autocommit:
                 self.commit()
 
     def mark_dirty(self, instance: Model) -> None:
         with self._lock:
+            self._capture_transaction_participant(instance)
             self.unit_of_work.register_dirty(instance)
             if self.autocommit:
                 self.commit()
@@ -162,6 +183,7 @@ class Session:
         try:
             with self.transaction():
                 for instance in created:
+                    self._capture_transaction_participant(instance)
                     self._persist_new(instance)
         except Exception:
             for instance, field_values, initial_state, related_cache, persisted in snapshots:
@@ -398,10 +420,19 @@ class Session:
 
     # ------------------------------------------------------------------ #
     def _snapshot_uow(self) -> None:
-        snapshot = (
-            set(self.unit_of_work.new),
-            set(self.unit_of_work.dirty),
-            set(self.unit_of_work.deleted),
+        identity_instances = set(self.identity_map.values())
+        participants = (
+            identity_instances
+            | set(self.unit_of_work.new)
+            | set(self.unit_of_work.dirty)
+            | set(self.unit_of_work.deleted)
+        )
+        snapshot = _SessionSnapshot(
+            new=set(self.unit_of_work.new),
+            dirty=set(self.unit_of_work.dirty),
+            deleted=set(self.unit_of_work.deleted),
+            model_states={instance: self._model_state(instance) for instance in participants},
+            identity_instances=identity_instances,
         )
         self._uow_snapshots.append(snapshot)
 
@@ -413,10 +444,35 @@ class Session:
         if not self._uow_snapshots:
             self.unit_of_work.clear()
             return
-        new_snapshot, dirty_snapshot, deleted_snapshot = self._uow_snapshots.pop()
-        self.unit_of_work.new = set(new_snapshot)
-        self.unit_of_work.dirty = set(dirty_snapshot)
-        self.unit_of_work.deleted = set(deleted_snapshot)
+        snapshot = self._uow_snapshots.pop()
+        for instance, state in snapshot.model_states.items():
+            instance._field_values = dict(state.field_values)
+            instance._initial_state = dict(state.initial_state)
+            instance._related_cache = dict(state.related_cache)
+            instance._persisted = state.persisted
+        self.unit_of_work.new = set(snapshot.new)
+        self.unit_of_work.dirty = set(snapshot.dirty)
+        self.unit_of_work.deleted = set(snapshot.deleted)
+        self.identity_map.clear()
+        self.cache.clear()
+        for instance in snapshot.identity_instances:
+            self.identity_map.add(instance)
+            if instance._persisted:
+                self._cache_instance(instance)
+
+    @staticmethod
+    def _model_state(instance: Model) -> _ModelState:
+        return _ModelState(
+            field_values=dict(instance._field_values),
+            initial_state=dict(instance._initial_state),
+            related_cache=dict(instance._related_cache),
+            persisted=instance._persisted,
+        )
+
+    def _capture_transaction_participant(self, instance: Model) -> None:
+        for snapshot in self._uow_snapshots:
+            if instance not in snapshot.model_states:
+                snapshot.model_states[instance] = self._model_state(instance)
 
     # ------------------------------------------------------------------ #
     # Persistence helpers
