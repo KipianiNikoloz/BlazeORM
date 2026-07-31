@@ -4,12 +4,16 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 - No changes yet.
+
+## [0.4.0] - 2026-07-31
 - Replaced ad-hoc development virtual environments and pip-based CI/release setup with a locked `uv` workflow.
 - Added efficient `values()` and `values_list()` field projections to QuerySet and QueryManager.
 - Added portable numeric aggregate terminals with correct ordered-slice semantics.
 - Added guarded filtered bulk update/delete operations with transaction and cache synchronization.
 - Added atomic `Session.bulk_create()` with generated keys, lifecycle hooks, cache integration, and failure-state restoration.
 - Fixed transaction and savepoint rollback to restore ORM-managed model, lifecycle, identity-map, unit-of-work, and cache state.
+- Added declarative multi-field `UniqueConstraint` and `Index` metadata with abstract inheritance and portable schema SQL.
+- Guaranteed that managed `auto_now` timestamps advance even when the system clock repeats a value.
 
 ## [0.3.0] - 2026-07-31
 - Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.

@@ -6,6 +6,7 @@ to maintain quick startup time.
 """
 
 from .cache import InMemoryCache, NoOpCache  # noqa: F401
+from .core.constraints import Index, UniqueConstraint  # noqa: F401
 from .core.fields import (  # noqa: F401
     AutoField,
     BooleanField,
@@ -37,7 +38,9 @@ __all__ = [
     "DateTimeField",
     "FloatField",
     "IntegerField",
+    "Index",
     "StringField",
+    "UniqueConstraint",
     "ForeignKey",
     "OneToOneField",
     "ManyToManyField",

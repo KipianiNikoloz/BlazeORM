@@ -4,8 +4,9 @@ Schema builder converting model metadata into DDL statements.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Sequence
 
+from ..core.constraints import Index
 from ..core.model import Model
 from ..core.relations import ManyToManyField, RelatedField
 from ..dialects.base import Dialect
@@ -60,6 +61,8 @@ class SchemaBuilder:
             else:
                 stmt = f"CREATE INDEX IF NOT EXISTS {index_ident} ON {table_name} ({column})"
             stmts.append(stmt)
+        for index in model._meta.indexes:
+            stmts.append(self._create_composite_index_sql(model, index, table_name))
         return stmts
 
     def drop_table_sql(self, model: type[Model]) -> str:
@@ -77,6 +80,18 @@ class SchemaBuilder:
             if not field.index or field.primary_key or field.unique:
                 continue
             index_name = self._index_name(model, field)
+            index_ident = self.dialect.quote_identifier(index_name)
+            self.logger.warning(
+                "DROP INDEX generated for %s; confirm destructive migration before applying.",
+                index_name,
+            )
+            if self.dialect.name == "mysql":
+                stmt = f"DROP INDEX {index_ident} ON {table_name}"
+            else:
+                stmt = f"DROP INDEX IF EXISTS {index_ident}"
+            stmts.append(stmt)
+        for index in model._meta.indexes:
+            index_name = index.name or self._metadata_name("idx", model, index.fields)
             index_ident = self.dialect.quote_identifier(index_name)
             self.logger.warning(
                 "DROP INDEX generated for %s; confirm destructive migration before applying.",
@@ -115,6 +130,18 @@ class SchemaBuilder:
                 column_def = f"{column_def} {' '.join(extras)}"
             pieces.append(column_def)
         pieces.extend(self._render_foreign_keys(model))
+        pieces.extend(self._render_unique_constraints(model))
+        return pieces
+
+    def _render_unique_constraints(self, model: type[Model]) -> list[str]:
+        pieces: list[str] = []
+        for constraint in model._meta.constraints:
+            name = constraint.name or self._metadata_name("uq", model, constraint.fields)
+            columns = ", ".join(
+                self.dialect.quote_identifier(model._meta.get_field(field).column_name())
+                for field in constraint.fields
+            )
+            pieces.append(f"CONSTRAINT {self.dialect.quote_identifier(name)} UNIQUE ({columns})")
         return pieces
 
     def _render_foreign_keys(self, model: type[Model]) -> list[str]:
@@ -174,6 +201,26 @@ class SchemaBuilder:
         table_name = model._meta.table_name.replace(".", "_")
         column_name = field.column_name().replace(".", "_")
         return f"idx_{table_name}_{column_name}"
+
+    def _create_composite_index_sql(self, model: type[Model], index: Index, table_name: str) -> str:
+        index_name = index.name or self._metadata_name("idx", model, index.fields)
+        index_ident = self.dialect.quote_identifier(index_name)
+        columns = ", ".join(
+            self.dialect.quote_identifier(model._meta.get_field(field).column_name())
+            for field in index.fields
+        )
+        prefix = "CREATE INDEX" if self.dialect.name == "mysql" else "CREATE INDEX IF NOT EXISTS"
+        return f"{prefix} {index_ident} ON {table_name} ({columns})"
+
+    @staticmethod
+    def _metadata_name(
+        prefix: str,
+        model: type[Model],
+        fields: Sequence[str],
+    ) -> str:
+        table_name = model._meta.table_name.replace(".", "_")
+        columns = [model._meta.get_field(field).column_name().replace(".", "_") for field in fields]
+        return "_".join((prefix, table_name, *columns))
 
     def _default_clause(self, field) -> str | None:
         if field.db_default is not None:

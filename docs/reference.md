@@ -8,6 +8,8 @@
 
 Models with `Meta.abstract = True` contribute cloned scalar and relationship fields to abstract and concrete descendants without receiving an automatic primary key themselves. Concrete descendants get an automatic key only when no inherited or declared key exists. Subclass declarations override inherited names; ambiguous names from multiple abstract bases require an explicit override. Concrete multi-table inheritance is not supported.
 
+`Meta.constraints` accepts immutable `UniqueConstraint(fields, name=None)` entries and `Meta.indexes` accepts `Index(fields, name=None)`. Entries reference scalar model field names, preserve column order, inherit from abstract bases, and are validated during class construction. Names are optional; SchemaBuilder generates deterministic table-and-column names when omitted.
+
 ## Relationships
 
 `ForeignKey`, `OneToOneField`, and `ManyToManyField` install forward descriptors and reverse accessors. Reverse names default to `<model>_set`. Many-to-many managers support `all`, `add`, `remove`, and `clear` inside an active session.
@@ -42,7 +44,7 @@ Dialects provide identifier quoting, table formatting, limit/offset rendering, p
 
 ## Schema and Migrations
 
-`SchemaBuilder` renders tables, foreign keys, many-to-many through tables, and indexes. `MigrationEngine.apply()` runs ordered `MigrationOperation` values and records versions. Destructive operations require explicit confirmation.
+`SchemaBuilder` renders tables, foreign keys, many-to-many through tables, model-level unique constraints, and field/composite indexes. Composite index create/drop SQL and table constraints use dialect quoting and declared field columns. `MigrationEngine.apply()` runs ordered `MigrationOperation` values and records versions. Model metadata never changes schema automatically, and destructive operations require explicit confirmation.
 
 ## Hooks, Caching, and Observability
 

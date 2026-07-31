@@ -2,6 +2,7 @@
 Core building blocks for BlazeORM models and metadata handling.
 """
 
+from .constraints import Index, UniqueConstraint
 from .fields import (
     AutoField,
     BooleanField,
@@ -21,11 +22,13 @@ __all__ = [
     "Field",
     "FloatField",
     "IntegerField",
+    "Index",
     "Model",
     "ModelConfigurationError",
     "ModelMeta",
     "ModelOptions",
     "StringField",
+    "UniqueConstraint",
     "ForeignKey",
     "OneToOneField",
     "ManyToManyField",

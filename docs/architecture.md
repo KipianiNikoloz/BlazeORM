@@ -23,6 +23,7 @@ BlazeORM does not provide asynchronous APIs, automatic schema diffs, implicit mi
 - Transactions use `TransactionManager`; nested transactions depend on dialect savepoint support.
 - Each transaction/savepoint snapshots participating ORM-managed model state; rollback restores values, lifecycle flags, UoW registration, identity membership, and conservative cache state.
 - Migrations are explicit. Operations marked destructive require `force=True`.
+- Model constraint/index metadata feeds SchemaBuilder only; declaring metadata never applies schema changes implicitly.
 - DSNs and sensitive parameters are redacted in logs. Configuration comes from `ConnectionConfig.from_dsn()` or `from_env()`.
 - Public behavior remains compatible unless an approved OpenSpec change says otherwise.
 
