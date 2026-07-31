@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, List, Tuple
 
+from ..core.fields import AutoField, FloatField, IntegerField
 from ..core.relations import RelatedField
 from ..dialects.base import Dialect
 from .expressions import Q
@@ -24,6 +25,7 @@ LOOKUP_OPERATORS = {
 }
 
 TEXT_LOOKUPS = {"contains", "startswith", "endswith", "iexact", "icontains"}
+AGGREGATE_FUNCTIONS = {"SUM", "AVG", "MIN", "MAX"}
 
 
 class SQLCompiler:
@@ -60,6 +62,25 @@ class SQLCompiler:
             for name in fields
         )
         return self._compile_select(select_list, [])
+
+    def compile_aggregate(self, function: str, field_name: str) -> Tuple[str, List[Any]]:
+        normalized_function = function.upper()
+        if normalized_function not in AGGREGATE_FUNCTIONS:
+            raise ValueError(f"Unsupported aggregate '{function}'.")
+        field = self.model._meta.get_field(field_name)
+        if not isinstance(field, (AutoField, IntegerField, FloatField)):
+            raise ValueError(f"Aggregate requires a numeric field, received '{field_name}'.")
+
+        table = self._table_for_model(self.model)
+        value_alias = self.dialect.quote_identifier("blaze_value")
+        aggregate_alias = self.dialect.quote_identifier("blaze_aggregate")
+        inner_sql, params = self._compile_select(
+            f"{self._qualified(table, field.column_name())} AS {value_alias}", []
+        )
+        return (
+            f"SELECT {normalized_function}({value_alias}) FROM ({inner_sql}) AS {aggregate_alias}",
+            params,
+        )
 
     def _compile_select(self, select_list: str, joins: List[str]) -> Tuple[str, List[Any]]:
         sql_parts: List[str] = [f"SELECT {select_list}", "FROM", self._table_for_model(self.model)]

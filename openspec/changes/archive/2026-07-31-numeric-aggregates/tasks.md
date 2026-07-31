@@ -1,0 +1,15 @@
+## 1. Compiler
+
+- [x] 1.1 Add failing cross-dialect tests for filtered, ordered, sliced aggregate SQL.
+- [x] 1.2 Implement validated portable aggregate compilation.
+
+## 2. Public API
+
+- [x] 2.1 Add failing execution tests for all aggregate results, managers, empty inputs, caches, and errors.
+- [x] 2.2 Implement QuerySet and QueryManager aggregate terminals.
+
+## 3. Completion
+
+- [x] 3.1 Run focused and full frozen-uv quality gates.
+- [x] 3.2 Update README, reference, and changelog.
+- [x] 3.3 Validate, synchronize, and archive the OpenSpec change.

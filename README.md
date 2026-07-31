@@ -92,6 +92,7 @@ engine.apply("blog", "0001", ops)
 - `get(**lookups)` requires exactly one result and raises `DoesNotExist` or `MultipleObjectsReturned` otherwise.
 - `count()` and `exists()` use database-side aggregate/probe queries and respect QuerySet filters and slicing.
 - `values(*fields)` returns dictionaries and `values_list(*fields, flat=False)` returns tuples or single-field scalars without model hydration.
+- `sum(field)`, `average(field)`, `minimum(field)`, and `maximum(field)` calculate numeric summaries after applying filters and ordered slices.
 - Terminal operations are available from both QuerySets and model managers inside an active session.
 
 ### Transactions, Hooks, and M2M Helpers

@@ -189,6 +189,41 @@ def test_projection_compiler_rejects_unknown_field():
         compiler.compile_projection(("missing",))
 
 
+@pytest.mark.parametrize("dialect", [SQLiteDialect(), PostgresDialect(), MySQLDialect()])
+def test_aggregate_compiler_preserves_ordered_slice(dialect):
+    compiler = (
+        QuerySet(User, dialect=dialect)
+        .filter(age__gte=18)
+        .order_by("-age")
+        .offset(1)
+        .limit(2)
+        ._compiler()
+    )
+    table = dialect.format_table("user")
+    age = dialect.quote_identifier("age")
+    placeholder = dialect.parameter_placeholder()
+    value_alias = dialect.quote_identifier("blaze_value")
+    aggregate_alias = dialect.quote_identifier("blaze_aggregate")
+
+    sql, params = compiler.compile_aggregate("SUM", "age")
+
+    assert sql == (
+        f"SELECT SUM({value_alias}) FROM (SELECT {table}.{age} AS {value_alias} "
+        f"FROM {table} WHERE {age} >= {placeholder} ORDER BY {age} DESC "
+        f"{dialect.limit_clause(2, 1)}) AS {aggregate_alias}"
+    )
+    assert params == [18]
+
+
+def test_aggregate_compiler_rejects_invalid_function_and_field():
+    compiler = QuerySet(User)._compiler()
+
+    with pytest.raises(ValueError, match="Unsupported aggregate"):
+        compiler.compile_aggregate("MEDIAN", "age")
+    with pytest.raises(ValueError, match="numeric field"):
+        compiler.compile_aggregate("MAX", "name")
+
+
 def test_query_errors_are_publicly_exported():
     from blazeorm import DoesNotExist as RootDoesNotExist
     from blazeorm import MultipleObjectsReturned as RootMultipleObjectsReturned
