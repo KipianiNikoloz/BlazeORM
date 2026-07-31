@@ -11,6 +11,6 @@
 
 ## 3. Documentation and Completion
 
-- [ ] 3.1 Update the README, consolidated reference, and Unreleased changelog.
-- [ ] 3.2 Run all local quality gates and validate the OpenSpec change.
-- [ ] 3.3 Synchronize the capability specification and archive the completed change.
+- [x] 3.1 Update the README, consolidated reference, and Unreleased changelog.
+- [x] 3.2 Run all local quality gates and validate the OpenSpec change.
+- [x] 3.3 Synchronize the capability specification and archive the completed change.
