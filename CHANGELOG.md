@@ -3,6 +3,8 @@
 All notable changes to this project will be documented here.
 
 ## [Unreleased]
+- Added `first`, `get`, `count`, and `exists` terminal operations to QuerySet and QueryManager.
+- Added public `QueryError`, `DoesNotExist`, and `MultipleObjectsReturned` exceptions.
 - Added portable `in`, `isnull`, prefix, suffix, and case-insensitive query lookups.
 - Corrected `iexact` SQL so case-insensitive behavior is consistent across supported databases.
 

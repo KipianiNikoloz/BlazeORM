@@ -12,6 +12,6 @@
 
 ## 3. Documentation and Completion
 
-- [ ] 3.1 Update README, reference, examples where useful, and Unreleased changelog.
-- [ ] 3.2 Run quality gates and validate the OpenSpec change.
-- [ ] 3.3 Synchronize specifications and archive the completed change.
+- [x] 3.1 Update README, reference, examples where useful, and Unreleased changelog.
+- [x] 3.2 Run quality gates and validate the OpenSpec change.
+- [x] 3.3 Synchronize specifications and archive the completed change.
