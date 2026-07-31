@@ -1,7 +1,7 @@
 ## 1. Compiler
 
-- [ ] 1.1 Add failing cross-dialect tests for filtered, ordered, sliced aggregate SQL.
-- [ ] 1.2 Implement validated portable aggregate compilation.
+- [x] 1.1 Add failing cross-dialect tests for filtered, ordered, sliced aggregate SQL.
+- [x] 1.2 Implement validated portable aggregate compilation.
 
 ## 2. Public API
 
