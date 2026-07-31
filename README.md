@@ -49,7 +49,13 @@ class Article(Model):
     title = StringField()
     author = ForeignKey(Author, related_name="articles")
     categories = ManyToManyField(Category, related_name="articles")
+
+    class Meta:
+        constraints = (UniqueConstraint(fields=("author", "title")),)
+        indexes = (Index(fields=("title", "author")),)
 ```
+
+Import `UniqueConstraint` and `Index` from `blazeorm`; model-level metadata expresses portable multi-column uniqueness and indexes for explicit schema migrations.
 
 Reusable fields can live on an abstract model; concrete descendants receive independent field and relationship metadata:
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import RLock
 from typing import Any, Iterable, Optional, Type
 
@@ -27,6 +27,10 @@ from .unit_of_work import UnitOfWork
 _current_session: ContextVar["Session | None"] = ContextVar(
     "blazeorm_current_session", default=None
 )
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -661,7 +665,26 @@ class Session:
     def _apply_managed_timestamps(instance: Model, *, created: bool) -> None:
         from ..core.fields import DateTimeField
 
-        timestamp = datetime.now(timezone.utc)
+        timestamp = _utc_now()
+        if not created:
+            existing_values = [
+                getattr(instance, field.require_name(), None)
+                for field in instance._meta.get_fields()
+                if isinstance(field, DateTimeField) and field.auto_now
+            ]
+            comparable = [
+                (
+                    value.astimezone(timezone.utc)
+                    if value.tzinfo is not None
+                    else value.replace(tzinfo=timezone.utc)
+                )
+                for value in existing_values
+                if isinstance(value, datetime)
+            ]
+            if comparable:
+                latest = max(comparable)
+                if timestamp <= latest:
+                    timestamp = latest + timedelta(microseconds=1)
         for field in instance._meta.get_fields():
             if not isinstance(field, DateTimeField):
                 continue

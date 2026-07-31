@@ -10,6 +10,6 @@
 
 ## 3. Completion and Release
 
-- [ ] 3.1 Run focused and full frozen-uv quality gates.
-- [ ] 3.2 Update README/reference/changelog, set version 0.4.0, and refresh uv.lock.
-- [ ] 3.3 Validate, synchronize, and archive the OpenSpec change.
+- [x] 3.1 Run focused and full frozen-uv quality gates.
+- [x] 3.2 Update README/reference/changelog, set version 0.4.0, and refresh uv.lock.
+- [x] 3.3 Validate, synchronize, and archive the OpenSpec change.

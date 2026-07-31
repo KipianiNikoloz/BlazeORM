@@ -7,6 +7,7 @@ from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.cache import InMemoryCache
 from blazeorm.core import DateTimeField, Model, StringField
 from blazeorm.persistence import Session
+from blazeorm.persistence import session as session_module
 
 
 class Document(Model):
@@ -46,6 +47,24 @@ def test_managed_timestamps_apply_on_insert_and_update(tmp_path):
     session.commit()
 
     assert document.created_at == created_at
+    assert document.updated_at > first_updated_at
+
+
+def test_auto_now_advances_when_wall_clock_value_repeats(tmp_path, monkeypatch):
+    fixed = datetime(2026, 7, 31, 15, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(session_module, "_utc_now", lambda: fixed, raising=False)
+    session = make_session(tmp_path)
+    document = Document(title="Draft")
+    document.save(session=session)
+    session.commit()
+    first_updated_at = document.updated_at
+
+    document.title = "Published"
+    document.save(session=session)
+    session.commit()
+
+    assert first_updated_at == fixed
     assert document.updated_at > first_updated_at
 
 
