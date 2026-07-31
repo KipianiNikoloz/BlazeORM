@@ -24,6 +24,8 @@ Supported scalar lookups are `exact`, `iexact`, `gt`, `gte`, `lt`, `lte`, `conta
 
 New, dirty, and deleted instances flow through the unit of work. Commits validate and persist changes; rollbacks restore tracked state. Nested transactions use savepoints when supported.
 
+`Session.bulk_create(instances)` atomically creates a homogeneous collection of new concrete models and returns the same objects in input order. It uses normal validation, hooks, managed timestamps, generated-key assignment, identity maps, and caches. Invalid collection shapes are rejected before writes, and failures roll back rows and restore the input objects. Portable correctness currently uses one INSERT per instance.
+
 Instance methods delegate to this same unit of work, so validation, hooks, identity maps, caches, transactions, and backend dialect behavior remain centralized in Session. Application-assigned primary keys do not make a newly constructed model persisted; its first `save()` still inserts it. Autocommit sessions commit inserts, updates, and deletes immediately.
 
 `Session.get()` fetches by one field and reuses identity-map and second-level cache entries for primary-key lookups. `Session.query()` returns a session-bound QuerySet. Many-to-many helpers update through tables and invalidate related caches.
