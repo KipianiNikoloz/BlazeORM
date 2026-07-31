@@ -3,6 +3,9 @@
 All notable changes to this project will be documented here.
 
 ## [Unreleased]
+- No changes yet.
+
+## [0.3.0] - 2026-07-31
 - Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.
 - Added model lifecycle tracking for assigned-key inserts, loaded-instance updates, deletion, and autocommit parity.
 - Corrected managed datetime fields so `auto_now` advances on writes and `auto_now_add` remains creation-only.
