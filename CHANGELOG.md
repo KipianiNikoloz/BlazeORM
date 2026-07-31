@@ -9,6 +9,7 @@ All notable changes to this project will be documented here.
 - Added portable numeric aggregate terminals with correct ordered-slice semantics.
 - Added guarded filtered bulk update/delete operations with transaction and cache synchronization.
 - Added atomic `Session.bulk_create()` with generated keys, lifecycle hooks, cache integration, and failure-state restoration.
+- Fixed transaction and savepoint rollback to restore ORM-managed model, lifecycle, identity-map, unit-of-work, and cache state.
 
 ## [0.3.0] - 2026-07-31
 - Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.

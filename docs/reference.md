@@ -22,7 +22,7 @@ Supported scalar lookups are `exact`, `iexact`, `gt`, `gte`, `lt`, `lte`, `conta
 
 `Session` owns the connection boundary, transactions, identity map, unit of work, cache, hooks, and performance tracker. Construct it with an adapter and either a `ConnectionConfig` or DSN. Use `with session:` to bind manager and relationship operations to the current context.
 
-New, dirty, and deleted instances flow through the unit of work. Commits validate and persist changes; rollbacks restore tracked state. Nested transactions use savepoints when supported.
+New, dirty, and deleted instances flow through the unit of work. Commits validate and persist changes. Rollbacks restore transaction-entry scalar values, clean-state baselines, lifecycle flags, UoW registration, identity membership, and cached payloads. Instances first registered after begin are captured lazily. Nested transactions use independent savepoint snapshots, so inner and outer rollback boundaries restore their respective entry states.
 
 `Session.bulk_create(instances)` atomically creates a homogeneous collection of new concrete models and returns the same objects in input order. It uses normal validation, hooks, managed timestamps, generated-key assignment, identity maps, and caches. Invalid collection shapes are rejected before writes, and failures roll back rows and restore the input objects. Portable correctness currently uses one INSERT per instance.
 
