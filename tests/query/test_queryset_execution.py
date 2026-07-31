@@ -257,6 +257,48 @@ def test_values_list_flat_requires_exactly_one_field(tmp_path):
         session.query(User).values_list("name", "age", flat=True)
 
 
+def test_numeric_aggregates_preserve_filters_and_ordered_slice(tmp_path):
+    session = create_populated_user_session(tmp_path, "numeric-aggregates.db")
+    query = session.query(User).filter(age__gte=20).order_by("-age").offset(1).limit(2)
+
+    assert query.sum("age") == 40
+    assert query.average("age") == 20
+    assert query.minimum("age") == 20
+    assert query.maximum("age") == 20
+    assert session.identity_map.values() == []
+
+
+def test_numeric_aggregates_return_none_for_empty_query(tmp_path):
+    session = create_populated_user_session(tmp_path, "empty-aggregates.db")
+    query = session.query(User).filter(age__gt=100)
+
+    assert query.sum("age") is None
+    assert query.average("age") is None
+    assert query.minimum("age") is None
+    assert query.maximum("age") is None
+
+
+def test_numeric_aggregate_manager_uses_context_session(tmp_path):
+    session = create_populated_user_session(tmp_path, "manager-aggregates.db")
+
+    with session:
+        assert User.objects.sum("age") == 70
+        assert User.objects.average("age") == pytest.approx(70 / 3)
+        assert User.objects.minimum("age") == 20
+        assert User.objects.maximum("age") == 30
+
+
+def test_numeric_aggregates_validate_fields_and_session(tmp_path):
+    session = create_populated_user_session(tmp_path, "invalid-aggregates.db")
+
+    with pytest.raises(ValueError, match="numeric field"):
+        session.query(User).sum("name")
+    with pytest.raises(KeyError, match="Unknown field 'missing'"):
+        session.query(User).sum("missing")
+    with pytest.raises(RuntimeError, match="requires a bound Session"):
+        User.objects.sum("age")
+
+
 @pytest.mark.parametrize("method", ["first", "get", "count", "exists"])
 def test_terminal_methods_require_bound_session(method):
     query = User.objects.all()

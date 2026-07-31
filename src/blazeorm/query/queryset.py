@@ -134,6 +134,18 @@ class QuerySet:
             return [row[0] for row in rows]
         return rows
 
+    def sum(self, field: str) -> Any:
+        return self._aggregate("SUM", field)
+
+    def average(self, field: str) -> Any:
+        return self._aggregate("AVG", field)
+
+    def minimum(self, field: str) -> Any:
+        return self._aggregate("MIN", field)
+
+    def maximum(self, field: str) -> Any:
+        return self._aggregate("MAX", field)
+
     def _compiler(self) -> SQLCompiler:
         return SQLCompiler(
             model=self.model,
@@ -188,6 +200,12 @@ class QuerySet:
             tuple(field.to_python(row[index]) for index, field in enumerate(fields))
             for row in cursor.fetchall()
         ]
+
+    def _aggregate(self, function: str, field_name: str) -> Any:
+        sql, params = self._compiler().compile_aggregate(function, field_name)
+        session = self._require_session()
+        row = session.execute(sql, params).fetchone()
+        return row[0] if row is not None else None
 
     # Internal helpers --------------------------------------------------
     def _add_q(self, q_object: Q) -> Q:
@@ -578,3 +596,15 @@ class QueryManager:
 
     def values_list(self, *fields: str, flat: bool = False) -> list[Any]:
         return self.all().values_list(*fields, flat=flat)
+
+    def sum(self, field: str) -> Any:
+        return self.all().sum(field)
+
+    def average(self, field: str) -> Any:
+        return self.all().average(field)
+
+    def minimum(self, field: str) -> Any:
+        return self.all().minimum(field)
+
+    def maximum(self, field: str) -> Any:
+        return self.all().maximum(field)

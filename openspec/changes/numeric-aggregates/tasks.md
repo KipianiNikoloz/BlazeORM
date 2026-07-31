@@ -5,8 +5,8 @@
 
 ## 2. Public API
 
-- [ ] 2.1 Add failing execution tests for all aggregate results, managers, empty inputs, caches, and errors.
-- [ ] 2.2 Implement QuerySet and QueryManager aggregate terminals.
+- [x] 2.1 Add failing execution tests for all aggregate results, managers, empty inputs, caches, and errors.
+- [x] 2.2 Implement QuerySet and QueryManager aggregate terminals.
 
 ## 3. Completion
 
