@@ -81,9 +81,8 @@ class ModelMeta(type):
             if isinstance(value, Field):
                 declared_fields[attr_name] = attrs.pop(attr_name)
 
+        meta = attrs.get("Meta")
         cls = cast(type["Model"], super().__new__(mcls, name, bases, attrs))
-
-        meta = getattr(cls, "Meta", None)
         table_name = camel_to_snake(name)
         schema = None
         abstract = False
@@ -95,9 +94,31 @@ class ModelMeta(type):
 
         cls._meta = ModelOptions(model=cls, table_name=table_name, schema=schema, abstract=abstract)
 
-        # TODO: Support inheriting fields from abstract base models.
-        sorted_fields = sorted(declared_fields.items(), key=lambda item: item[1].creation_counter)
-        for attr_name, field_obj in sorted_fields:
+        combined_fields: "OrderedDict[str, Field]" = OrderedDict()
+        declared_names = set(declared_fields)
+        for base in bases:
+            base_options = getattr(base, "_meta", None)
+            if base_options is None or not base_options.abstract:
+                continue
+            inherited = list(base_options.get_fields()) + list(base_options.many_to_many)
+            for field_obj in inherited:
+                field_name = field_obj.require_name()
+                if field_name in combined_fields:
+                    if field_name not in declared_names:
+                        raise ModelConfigurationError(
+                            f"Field '{field_name}' is inherited from multiple abstract bases "
+                            f"on model '{name}'. Declare it explicitly to resolve the conflict."
+                        )
+                    continue
+                combined_fields[field_name] = field_obj.clone()
+
+        sorted_declared_fields = sorted(
+            declared_fields.items(), key=lambda item: item[1].creation_counter
+        )
+        for attr_name, field_obj in sorted_declared_fields:
+            combined_fields[attr_name] = field_obj
+
+        for attr_name, field_obj in combined_fields.items():
             field_obj.contribute_to_class(cls, attr_name)
             if isinstance(field_obj, ManyToManyField):
                 field_obj.model = cls
@@ -116,12 +137,7 @@ class ModelMeta(type):
             auto_field = AutoField()
             auto_field.contribute_to_class(cls, "id")
             cls._meta.add_field(auto_field)
-            cls._meta.fields = OrderedDict(
-                sorted(
-                    cls._meta.fields.items(),
-                    key=lambda item: (0 if item[0] == "id" else 1, item[1].creation_counter),
-                )
-            )
+            cls._meta.fields.move_to_end("id", last=False)
 
         if "objects" not in cls.__dict__:
             cls.objects = QueryManager(cls)
