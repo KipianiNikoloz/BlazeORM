@@ -5,8 +5,8 @@
 
 ## 2. Public API
 
-- [ ] 2.1 Add failing execution tests for counts, rollback/autocommit, cache clearing, and hook bypass.
-- [ ] 2.2 Implement QuerySet mutation terminals and Session cache synchronization.
+- [x] 2.1 Add failing execution tests for counts, rollback/autocommit, cache clearing, and hook bypass.
+- [x] 2.2 Implement QuerySet mutation terminals and Session cache synchronization.
 
 ## 3. Completion
 

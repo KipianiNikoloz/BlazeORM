@@ -323,6 +323,11 @@ class Session:
         with self._lock:
             self.performance.reset()
 
+    def _clear_cached_state(self) -> None:
+        with self._lock:
+            self.identity_map.clear()
+            self.cache.clear()
+
     # ------------------------------------------------------------------ #
     @contextmanager
     def transaction(self):

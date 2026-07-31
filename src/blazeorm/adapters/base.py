@@ -248,6 +248,9 @@ class Cursor(Protocol):
     @property
     def lastrowid(self) -> int | None: ...
 
+    @property
+    def rowcount(self) -> int: ...
+
 
 class DatabaseAdapter(Protocol):
     """

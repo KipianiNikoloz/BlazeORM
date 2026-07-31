@@ -146,6 +146,26 @@ class QuerySet:
     def maximum(self, field: str) -> Any:
         return self._aggregate("MAX", field)
 
+    def update(self, **values: Any) -> int:
+        compiler = self._compiler()
+        compiler.compile_update(values)
+        session = self._require_session()
+        normalized_values = {
+            name: session._normalize_db_value(self.model._meta.get_field(name), value)
+            for name, value in values.items()
+        }
+        sql, params = compiler.compile_update(normalized_values)
+        affected = session.execute(sql, params).rowcount
+        self._finish_bulk_mutation(session, affected)
+        return affected
+
+    def delete(self) -> int:
+        sql, params = self._compiler().compile_delete()
+        session = self._require_session()
+        affected = session.execute(sql, params).rowcount
+        self._finish_bulk_mutation(session, affected)
+        return affected
+
     def _compiler(self) -> SQLCompiler:
         return SQLCompiler(
             model=self.model,
@@ -207,6 +227,13 @@ class QuerySet:
         session = self._require_session()
         row = session.execute(sql, params).fetchone()
         return row[0] if row is not None else None
+
+    @staticmethod
+    def _finish_bulk_mutation(session: "Session", affected: int) -> None:
+        if affected:
+            session._clear_cached_state()
+        if session.autocommit:
+            session.commit()
 
     # Internal helpers --------------------------------------------------
     def _add_q(self, q_object: Q) -> Q:
