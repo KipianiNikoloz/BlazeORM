@@ -51,8 +51,19 @@ class SQLCompiler:
 
     def compile(self) -> Tuple[str, List[Any]]:
         select_list = self._build_select_list()
+        return self._compile_select(select_list, self._build_select_related_joins())
+
+    def compile_projection(self, fields: tuple[str, ...]) -> Tuple[str, List[Any]]:
+        table = self._table_for_model(self.model)
+        select_list = ", ".join(
+            self._qualified(table, self.model._meta.get_field(name).column_name())
+            for name in fields
+        )
+        return self._compile_select(select_list, [])
+
+    def _compile_select(self, select_list: str, joins: List[str]) -> Tuple[str, List[Any]]:
         sql_parts: List[str] = [f"SELECT {select_list}", "FROM", self._table_for_model(self.model)]
-        sql_parts.extend(self._build_select_related_joins())
+        sql_parts.extend(joins)
         params: List[Any] = []
 
         if self.where and not self.where.is_empty():
