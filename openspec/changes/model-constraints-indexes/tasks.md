@@ -5,8 +5,8 @@
 
 ## 2. Schema Generation
 
-- [ ] 2.1 Add failing cross-dialect tests for named/generated unique constraints and composite create/drop indexes.
-- [ ] 2.2 Implement portable SchemaBuilder constraint and composite-index SQL.
+- [x] 2.1 Add failing cross-dialect tests for named/generated unique constraints and composite create/drop indexes.
+- [x] 2.2 Implement portable SchemaBuilder constraint and composite-index SQL.
 
 ## 3. Completion and Release
 
