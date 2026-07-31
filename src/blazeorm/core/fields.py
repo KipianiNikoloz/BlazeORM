@@ -4,6 +4,7 @@ Field definitions and descriptors for BlazeORM models.
 
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, cast
 
@@ -131,24 +132,11 @@ class Field:
 
     # Utilities -----------------------------------------------------------
     def clone(self) -> "Field":
-        """
-        Create a shallow copy of this field. Subclasses should override if
-        they accept additional initialization arguments.
-        """
-        params = {
-            "primary_key": self.primary_key,
-            "unique": self.unique,
-            "nullable": self.nullable,
-            "default": self.default,
-            "db_type": self.db_type,
-            "db_column": self.db_column,
-            "db_default": self.db_default,
-            "index": self.index,
-            "choices": self.choices,
-            "validators": list(self.validators),
-            "help_text": self.help_text,
-        }
-        cloned = self.__class__(**params)
+        """Create an unbound copy suitable for another model class."""
+        cloned = copy.copy(self)
+        cloned.model = None
+        cloned.name = None
+        cloned.validators = list(self.validators)
         return cloned
 
     @property
@@ -258,21 +246,7 @@ class StringField(Field):
         return result
 
     def clone(self) -> "StringField":
-        cloned = self.__class__(
-            max_length=self.max_length,
-            primary_key=self.primary_key,
-            unique=self.unique,
-            nullable=self.nullable,
-            default=self.default,
-            db_type=self.db_type,
-            db_column=self.db_column,
-            db_default=self.db_default,
-            index=self.index,
-            choices=self.choices,
-            validators=list(self.validators),
-            help_text=self.help_text,
-        )
-        return cloned
+        return cast("StringField", super().clone())
 
 
 class DateTimeField(Field):
@@ -297,19 +271,4 @@ class DateTimeField(Field):
         raise ValueError(f"Expected datetime for field '{self.name}', received {value!r}")
 
     def clone(self) -> "DateTimeField":
-        cloned = self.__class__(
-            auto_now=self.auto_now,
-            auto_now_add=self.auto_now_add,
-            primary_key=self.primary_key,
-            unique=self.unique,
-            nullable=self.nullable,
-            default=self.default,
-            db_type=self.db_type,
-            db_column=self.db_column,
-            db_default=self.db_default,
-            index=self.index,
-            choices=self.choices,
-            validators=list(self.validators),
-            help_text=self.help_text,
-        )
-        return cloned
+        return cast("DateTimeField", super().clone())

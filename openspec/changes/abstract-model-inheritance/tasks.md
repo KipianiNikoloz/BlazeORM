@@ -1,14 +1,14 @@
 ## 1. Inheritance Contract Tests
 
-- [ ] 1.1 Add failing tests for scalar fields, abstract chains, declaration order, and primary keys.
-- [ ] 1.2 Add failing tests for sibling isolation, subclass overrides, and multiple-base conflicts.
-- [ ] 1.3 Add failing relation/schema/persistence tests for inherited FK, O2O, and M2M fields.
+- [x] 1.1 Add failing tests for scalar fields, abstract chains, declaration order, and primary keys.
+- [x] 1.2 Add failing tests for sibling isolation, subclass overrides, and multiple-base conflicts.
+- [x] 1.3 Add failing relation/schema/persistence tests for inherited FK, O2O, and M2M fields.
 
 ## 2. Inheritance Implementation
 
-- [ ] 2.1 Add configuration-preserving clone support for relationship fields.
-- [ ] 2.2 Implement abstract-base collection, conflict detection, cloning, and override ordering in ModelMeta.
-- [ ] 2.3 Run focused model/relation/schema tests and the full suite.
+- [x] 2.1 Add configuration-preserving clone support for relationship fields.
+- [x] 2.2 Implement abstract-base collection, conflict detection, cloning, and override ordering in ModelMeta.
+- [x] 2.3 Run focused model/relation/schema tests and the full suite.
 
 ## 3. Documentation and Completion
 
