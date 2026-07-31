@@ -138,6 +138,8 @@ class Session:
     def mark_dirty(self, instance: Model) -> None:
         with self._lock:
             self.unit_of_work.register_dirty(instance)
+            if self.autocommit:
+                self.commit()
 
     # ------------------------------------------------------------------ #
     def flush(self) -> None:
@@ -169,6 +171,7 @@ class Session:
                 if cached_payload is not None:
                     instance = model(**cached_payload)
                     instance._initial_state = dict(instance._field_values)
+                    instance._persisted = True
                     self.identity_map.add(instance)
                     return instance
 
@@ -248,6 +251,7 @@ class Session:
         if pk_name and pk_value is not None and getattr(instance, pk_name, None) is None:
             setattr(instance, pk_name, pk_value)
         instance._initial_state = dict(instance._field_values)
+        instance._persisted = True
         self.identity_map.add(instance)
         self._cache_instance(instance)
         return instance
@@ -343,6 +347,7 @@ class Session:
             setattr(instance, pk_name, pk_value)
 
         instance._initial_state = dict(instance._field_values)
+        instance._persisted = True
         self.identity_map.add(instance)
         self.hooks.fire("after_save", instance, session=self, created=True)
         self._cache_instance(instance)
@@ -403,6 +408,7 @@ class Session:
         self.identity_map.remove(instance)
         self.hooks.fire("after_delete", instance, session=self)
         self._invalidate_cache(instance)
+        instance._persisted = False
 
     @staticmethod
     def _redact(params: Iterable[Any]) -> list[Any]:
