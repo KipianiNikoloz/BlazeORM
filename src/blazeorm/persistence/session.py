@@ -142,6 +142,15 @@ class Session:
             if self.autocommit:
                 self.commit()
 
+    def bulk_create(self, instances: Iterable[Model]) -> list[Model]:
+        created = list(instances)
+        if not created:
+            return []
+        with self.transaction():
+            for instance in created:
+                self._persist_new(instance)
+        return created
+
     # ------------------------------------------------------------------ #
     def flush(self) -> None:
         with self._lock:

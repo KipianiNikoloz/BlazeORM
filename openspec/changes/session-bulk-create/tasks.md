@@ -1,7 +1,7 @@
 ## 1. Core API
 
-- [ ] 1.1 Add failing tests for successful creation, input ordering, generated keys, caches, and empty input.
-- [ ] 1.2 Implement Session.bulk_create using existing persistence and transaction paths.
+- [x] 1.1 Add failing tests for successful creation, input ordering, generated keys, caches, and empty input.
+- [x] 1.2 Implement Session.bulk_create using existing persistence and transaction paths.
 
 ## 2. Safety and Lifecycle
 
