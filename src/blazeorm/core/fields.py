@@ -268,6 +268,14 @@ class DateTimeField(Field):
             return value
         if isinstance(value, datetime):
             return value
+        if isinstance(value, str):
+            normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+            try:
+                return datetime.fromisoformat(normalized)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Expected ISO datetime for field '{self.name}', received {value!r}"
+                ) from exc
         raise ValueError(f"Expected datetime for field '{self.name}', received {value!r}")
 
     def clone(self) -> "DateTimeField":

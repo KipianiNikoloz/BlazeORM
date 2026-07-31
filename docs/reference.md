@@ -2,7 +2,7 @@
 
 ## Models and Fields
 
-`Model` classes collect ordered fields and attach an `objects` query manager. Supported scalar fields are `AutoField`, `IntegerField`, `FloatField`, `BooleanField`, `StringField`, and `DateTimeField`. Fields support primary keys, uniqueness, nullability, Python/database defaults, indexes, choices, validators, custom columns, and help text.
+`Model` classes collect ordered fields and attach an `objects` query manager. Supported scalar fields are `AutoField`, `IntegerField`, `FloatField`, `BooleanField`, `StringField`, and `DateTimeField`. Fields support primary keys, uniqueness, nullability, Python/database defaults, indexes, choices, validators, custom columns, and help text. `DateTimeField(auto_now_add=True)` assigns an aware UTC creation timestamp on insert; `auto_now=True` assigns one on insert and every update. ISO-formatted database values hydrate as `datetime` objects.
 
 `Model.full_clean()` runs field validation and the model's `clean()` hook. Instances expose `pk`, `to_dict()`, dirty tracking, lifecycle hook registration, and many-to-many mutation helpers. `save(session=None)` inserts new instances or updates Session-loaded instances; `delete(session=None)` removes persisted instances. Both accept an explicit Session or use the current session context.
 
@@ -27,6 +27,8 @@ New, dirty, and deleted instances flow through the unit of work. Commits validat
 Instance methods delegate to this same unit of work, so validation, hooks, identity maps, caches, transactions, and backend dialect behavior remain centralized in Session. Application-assigned primary keys do not make a newly constructed model persisted; its first `save()` still inserts it. Autocommit sessions commit inserts, updates, and deletes immediately.
 
 `Session.get()` fetches by one field and reuses identity-map and second-level cache entries for primary-key lookups. `Session.query()` returns a session-bound QuerySet. Many-to-many helpers update through tables and invalidate related caches.
+
+`Session.refresh(instance)` bypasses caches and reloads every scalar field by primary key into the same Python object. It discards pending local scalar changes, clears relation caches, updates identity and second-level caches, and raises `DoesNotExist` if the row has disappeared.
 
 ## Adapters and Dialects
 
