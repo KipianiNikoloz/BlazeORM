@@ -1,0 +1,15 @@
+## 1. Compiler
+
+- [x] 1.1 Add failing cross-dialect tests for update/delete SQL and all safety guards.
+- [x] 1.2 Implement guarded portable bulk mutation compilation.
+
+## 2. Public API
+
+- [x] 2.1 Add failing execution tests for counts, rollback/autocommit, cache clearing, and hook bypass.
+- [x] 2.2 Implement QuerySet mutation terminals and Session cache synchronization.
+
+## 3. Completion
+
+- [x] 3.1 Run focused and full frozen-uv quality gates.
+- [x] 3.2 Update README, reference, and changelog.
+- [x] 3.3 Validate, synchronize, and archive the OpenSpec change.

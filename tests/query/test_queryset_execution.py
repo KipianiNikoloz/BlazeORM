@@ -3,6 +3,7 @@ import pytest
 from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.core import ForeignKey, IntegerField, ManyToManyField, Model, StringField
 from blazeorm.dialects import SQLiteDialect
+from blazeorm.hooks import hooks
 from blazeorm.persistence import Session
 from blazeorm.schema import MigrationEngine, MigrationOperation, SchemaBuilder
 
@@ -297,6 +298,61 @@ def test_numeric_aggregates_validate_fields_and_session(tmp_path):
         session.query(User).sum("missing")
     with pytest.raises(RuntimeError, match="requires a bound Session"):
         User.objects.sum("age")
+
+
+def test_filtered_bulk_update_returns_count_and_clears_caches(tmp_path):
+    session = create_populated_user_session(tmp_path, "bulk-update.db")
+    loaded = session.get(User, id=2)
+    assert loaded is not None
+    assert session.identity_map.values()
+
+    affected = session.query(User).filter(age=20).update(name="Updated")
+    session.commit()
+
+    assert affected == 2
+    assert session.identity_map.values() == []
+    assert session.query(User).filter(age=20).order_by("id").values_list("name", flat=True) == [
+        "Updated",
+        "Updated",
+    ]
+
+
+def test_filtered_bulk_delete_can_be_rolled_back(tmp_path):
+    session = create_populated_user_session(tmp_path, "bulk-delete.db")
+    session.commit()
+    session.begin()
+
+    affected = session.query(User).filter(age=20).delete()
+    assert affected == 2
+    session.rollback()
+
+    assert session.query(User).count() == 3
+
+
+def test_bulk_mutation_honors_autocommit(tmp_path):
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / 'bulk-autocommit.db'}")
+    session = Session(adapter, connection_config=config, autocommit=True)
+    create_user_table(session)
+    session.execute('INSERT INTO "user" (name, age) VALUES (?, ?)', ("Alice", 30))
+
+    assert session.query(User).filter(name="Alice").update(age=31) == 1
+    assert session.query(User).filter(name="Alice").delete() == 1
+    assert session.query(User).count() == 0
+
+
+def test_bulk_mutations_bypass_instance_hooks(tmp_path):
+    session = create_populated_user_session(tmp_path, "bulk-hooks.db")
+    events = []
+    hooks.register("before_save", lambda instance, **context: events.append("save"), model=User)
+    hooks.register("before_delete", lambda instance, **context: events.append("delete"), model=User)
+    try:
+        session.query(User).filter(name="Alice").update(age=31)
+        session.query(User).filter(name="Bob").delete()
+    finally:
+        hooks.clear()
+
+    assert events == []
 
 
 @pytest.mark.parametrize("method", ["first", "get", "count", "exists"])
