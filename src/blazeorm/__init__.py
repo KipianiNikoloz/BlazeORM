@@ -18,7 +18,13 @@ from .core.model import Model, ModelConfigurationError  # noqa: F401
 from .core.relations import ForeignKey, ManyToManyField, OneToOneField  # noqa: F401
 from .hooks import hooks  # noqa: F401
 from .persistence import Session  # noqa: F401
-from .query import Q, QuerySet  # noqa: F401
+from .query import (  # noqa: F401
+    DoesNotExist,
+    MultipleObjectsReturned,
+    Q,
+    QueryError,
+    QuerySet,
+)
 from .schema import MigrationEngine, MigrationOperation, SchemaBuilder  # noqa: F401
 from .utils import configure_logging, get_logger  # noqa: F401
 from .validation import ValidationError  # noqa: F401
@@ -41,6 +47,9 @@ __all__ = [
     "Session",
     "QuerySet",
     "Q",
+    "QueryError",
+    "DoesNotExist",
+    "MultipleObjectsReturned",
     "SchemaBuilder",
     "MigrationEngine",
     "MigrationOperation",

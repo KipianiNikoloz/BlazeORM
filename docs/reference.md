@@ -12,7 +12,7 @@
 
 ## Queries
 
-`Q` objects combine filters with `&`, `|`, and `~`. QuerySets support `filter`, `exclude`, `where`, `order_by`, `limit`, `offset`, `select_related`, `prefetch_related`, SQL compilation, and session-bound iteration.
+`Q` objects combine filters with `&`, `|`, and `~`. QuerySets support `filter`, `exclude`, `where`, `order_by`, `limit`, `offset`, `select_related`, `prefetch_related`, SQL compilation, and session-bound iteration. `first()` returns one row or `None`; `get()` enforces exactly one row with `DoesNotExist` and `MultipleObjectsReturned`; `count()` and `exists()` use database-side terminal queries. The default model manager delegates the same operations through the active session.
 
 Supported scalar lookups are `exact`, `iexact`, `gt`, `gte`, `lt`, `lte`, `contains`, `icontains`, `startswith`, `endswith`, `in`, and `isnull`. Empty `in` collections match nothing; invalid collection, boolean, and text values raise explicit errors. Case-insensitive matching uses `LOWER` for consistent behavior across supported databases. SQL and parameters are returned separately and placeholders come from the active dialect.
 

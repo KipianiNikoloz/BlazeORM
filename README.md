@@ -74,6 +74,12 @@ engine.apply("blog", "0001", ops)
 - Collections and nulls: `in` and `isnull`.
 - Case-insensitive lookups compile portably across SQLite, PostgreSQL, and MySQL.
 
+### Query Results
+- `first()` returns one matching model or `None`.
+- `get(**lookups)` requires exactly one result and raises `DoesNotExist` or `MultipleObjectsReturned` otherwise.
+- `count()` and `exists()` use database-side aggregate/probe queries and respect QuerySet filters and slicing.
+- Terminal operations are available from both QuerySets and model managers inside an active session.
+
 ### Transactions, Hooks, and M2M Helpers
 - Use `with session:` or `session.transaction()` for transactional scopes.
 - Hooks: `before/after_validate`, `before/after_save`, `before/after_delete`, `after_commit` fired by `Session`.

@@ -1,3 +1,5 @@
+import pytest
+
 from blazeorm.adapters import ConnectionConfig, SQLiteAdapter
 from blazeorm.core import ForeignKey, IntegerField, ManyToManyField, Model, StringField
 from blazeorm.dialects import SQLiteDialect
@@ -33,6 +35,17 @@ def create_user_table(session: Session) -> None:
     session.execute(
         'CREATE TABLE "user" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER)'
     )
+
+
+def create_populated_user_session(tmp_path, filename: str = "terminals.db") -> Session:
+    adapter = SQLiteAdapter()
+    config = ConnectionConfig(url=f"sqlite:///{tmp_path / filename}")
+    session = Session(adapter, connection_config=config)
+    create_user_table(session)
+    session.execute('INSERT INTO "user" (name, age) VALUES (?, ?)', ("Alice", 30))
+    session.execute('INSERT INTO "user" (name, age) VALUES (?, ?)', ("Bob", 20))
+    session.execute('INSERT INTO "user" (name, age) VALUES (?, ?)', ("Cara", 20))
+    return session
 
 
 def create_author_post_tables(session: Session) -> None:
@@ -159,3 +172,47 @@ def test_prefetch_with_empty_m2m_results(tmp_path):
         articles = list(session.query(Article).prefetch_related("categories"))
     assert articles
     assert articles[0].categories == []
+
+
+def test_queryset_first_returns_one_or_none(tmp_path):
+    session = create_populated_user_session(tmp_path, "first.db")
+    assert session.query(User).order_by("name").first().name == "Alice"
+    assert session.query(User).filter(name="Missing").first() is None
+    assert session.query(User).limit(0).first() is None
+
+
+def test_queryset_get_enforces_exactly_one_result(tmp_path):
+    from blazeorm.query import DoesNotExist, MultipleObjectsReturned
+
+    session = create_populated_user_session(tmp_path, "get.db")
+    assert session.query(User).get(name="Alice").age == 30
+    with pytest.raises(DoesNotExist, match="User"):
+        session.query(User).get(name="Missing")
+    with pytest.raises(MultipleObjectsReturned, match="User"):
+        session.query(User).get(age=20)
+
+
+def test_queryset_count_and_exists_respect_slicing(tmp_path):
+    session = create_populated_user_session(tmp_path, "aggregate.db")
+    query = session.query(User).filter(age__gte=20).order_by("name").offset(1).limit(1)
+    assert query.count() == 1
+    assert query.exists() is True
+    assert session.query(User).filter(age__gt=100).exists() is False
+    assert session.query(User).limit(0).count() == 0
+    assert session.query(User).limit(0).exists() is False
+
+
+def test_manager_terminal_methods_use_context_session(tmp_path):
+    session = create_populated_user_session(tmp_path, "manager-terminals.db")
+    with session:
+        assert User.objects.get(name="Alice").name == "Alice"
+        assert User.objects.first() is not None
+        assert User.objects.count() == 3
+        assert User.objects.filter(name="Missing").exists() is False
+
+
+@pytest.mark.parametrize("method", ["first", "get", "count", "exists"])
+def test_terminal_methods_require_bound_session(method):
+    query = User.objects.all()
+    with pytest.raises(RuntimeError, match="requires a bound Session"):
+        getattr(query, method)()

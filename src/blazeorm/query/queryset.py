@@ -4,7 +4,7 @@ QuerySet implementation providing a chainable query API.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Tuple
 
 from ..adapters.base import Cursor
 from ..core.relations import ManyToManyField, RelatedField, relation_registry
@@ -15,6 +15,18 @@ from .expressions import Q
 if TYPE_CHECKING:
     from ..core.model import Model
     from ..persistence.session import Session
+
+
+class QueryError(RuntimeError):
+    """Base class for QuerySet evaluation errors."""
+
+
+class DoesNotExist(QueryError):
+    """Raised when exact-one evaluation returns no rows."""
+
+
+class MultipleObjectsReturned(QueryError):
+    """Raised when exact-one evaluation returns multiple rows."""
 
 
 class QuerySet:
@@ -78,7 +90,40 @@ class QuerySet:
         return self._clone(prefetch_related=combined)
 
     def to_sql(self) -> tuple[str, list[Any]]:
-        compiler = SQLCompiler(
+        return self._compiler().compile()
+
+    def first(self) -> "Model | None":
+        if self._limit == 0:
+            return None
+        results = self._clone(limit=1)._evaluate()
+        return results[0] if results else None
+
+    def get(self, **lookups: Any) -> "Model":
+        query = self.filter(**lookups) if lookups else self
+        results = query._clone(limit=2)._evaluate()
+        if not results:
+            raise DoesNotExist(f"{self.model.__name__} matching query does not exist.")
+        if len(results) > 1:
+            raise MultipleObjectsReturned(f"{self.model.__name__} query returned multiple objects.")
+        return results[0]
+
+    def count(self) -> int:
+        if self._limit == 0:
+            return 0
+        session = self._require_session()
+        sql, params = self._compiler().compile_count()
+        row = session.execute(sql, params).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def exists(self) -> bool:
+        if self._limit == 0:
+            return False
+        session = self._require_session()
+        sql, params = self._compiler().compile_exists()
+        return session.execute(sql, params).fetchone() is not None
+
+    def _compiler(self) -> SQLCompiler:
+        return SQLCompiler(
             model=self.model,
             dialect=self.dialect,
             where=self._where,
@@ -87,10 +132,11 @@ class QuerySet:
             offset=self._offset,
             select_related=self._select_related,
         )
-        return compiler.compile()
 
-    # Iteration placeholder (will integrate with persistence later)
-    def __iter__(self) -> Iterable["Model"]:
+    def __iter__(self) -> Iterator["Model"]:
+        return iter(self._evaluate())
+
+    def _require_session(self) -> "Session":
         session = self._session
         if session is None:
             from ..persistence.session import Session as SessionCls
@@ -98,8 +144,12 @@ class QuerySet:
             session = SessionCls.current()
         if session is None:
             raise RuntimeError(
-                "QuerySet iteration requires a bound Session. Use Session.query(model) or iterate within an active Session context."
+                "QuerySet evaluation requires a bound Session. Use Session.query(model) or evaluate within an active Session context."
             )
+        return session
+
+    def _evaluate(self) -> list["Model"]:
+        session = self._require_session()
         sql, params = self.to_sql()
         cursor = session.execute(sql, params)
         rows = cursor.fetchall()
@@ -113,7 +163,7 @@ class QuerySet:
             instances.append(instance)
         if self._prefetch_related:
             self._prefetch_related_data(session, instances)
-        return iter(instances)
+        return instances
 
     # Internal helpers --------------------------------------------------
     def _add_q(self, q_object: Q) -> Q:
@@ -486,3 +536,15 @@ class QueryManager:
 
     def order_by(self, *fields: str) -> QuerySet:
         return self.all().order_by(*fields)
+
+    def first(self) -> "Model | None":
+        return self.all().first()
+
+    def get(self, **lookups: Any) -> "Model":
+        return self.all().get(**lookups)
+
+    def count(self) -> int:
+        return self.all().count()
+
+    def exists(self) -> bool:
+        return self.all().exists()
