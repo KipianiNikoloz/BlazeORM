@@ -51,6 +51,19 @@ class Article(Model):
     categories = ManyToManyField(Category, related_name="articles")
 ```
 
+Reusable fields can live on an abstract model; concrete descendants receive independent field and relationship metadata:
+
+```python
+class Timestamped(Model):
+    created_by = StringField(nullable=False)
+
+    class Meta:
+        abstract = True
+
+class Article(Timestamped):
+    title = StringField(nullable=False)
+```
+
 ### Schema & Migrations
 ```python
 from blazeorm.schema import SchemaBuilder, MigrationEngine, MigrationOperation
