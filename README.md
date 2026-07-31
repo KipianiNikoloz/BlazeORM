@@ -20,7 +20,7 @@ Modular Python ORM with eager loading, migrations, security hardening, caching, 
 - `src/blazeorm/security`: DSN utilities and migration safety helpers.
 - `src/blazeorm/cache`, `src/blazeorm/hooks`, `src/blazeorm/utils`: Caching backends, lifecycle hooks, logging, performance tracker.
 - `examples/`: Blog app showing migrations, sessions, seeding, and querying.
-- Each subpackage has a README for deeper details.
+- Consolidated architecture and API references live under `docs/`.
 
 ## Quickstart
 ```python
