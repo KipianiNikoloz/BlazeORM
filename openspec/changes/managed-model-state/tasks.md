@@ -12,6 +12,6 @@
 
 ## 3. Documentation and Completion
 
-- [ ] 3.1 Run focused/full tests and all quality gates.
-- [ ] 3.2 Update README, reference documentation, and Unreleased changelog.
+- [x] 3.1 Run focused/full tests and all quality gates.
+- [x] 3.2 Update README, reference documentation, and Unreleased changelog.
 - [ ] 3.3 Validate, synchronize, and archive the OpenSpec change.

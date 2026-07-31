@@ -5,6 +5,8 @@ All notable changes to this project will be documented here.
 ## [Unreleased]
 - Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.
 - Added model lifecycle tracking for assigned-key inserts, loaded-instance updates, deletion, and autocommit parity.
+- Corrected managed datetime fields so `auto_now` advances on writes and `auto_now_add` remains creation-only.
+- Added `Session.refresh()` for cache-bypassing, in-place model reloads and ISO datetime hydration.
 - Made the test suite fail on leaked database connections and ignored local coverage artifacts.
 
 ## [0.2.0] - 2026-07-31
