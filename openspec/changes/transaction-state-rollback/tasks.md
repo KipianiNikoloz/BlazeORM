@@ -1,7 +1,7 @@
 ## 1. Core Snapshots
 
-- [ ] 1.1 Add failing tests for flushed update, insert, and delete object restoration.
-- [ ] 1.2 Replace UoW tuples with model-aware transaction snapshots and core restore behavior.
+- [x] 1.1 Add failing tests for flushed update, insert, and delete object restoration.
+- [x] 1.2 Replace UoW tuples with model-aware transaction snapshots and core restore behavior.
 
 ## 2. Late and Nested State
 
