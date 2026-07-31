@@ -152,6 +152,43 @@ def test_terminal_compilers_use_portable_sliced_probes(dialect, table, placehold
     assert count_params == exists_params == [18]
 
 
+@pytest.mark.parametrize(
+    ("dialect", "table", "name_column", "age_column", "placeholder"),
+    [
+        (SQLiteDialect(), '"user"', '"name"', '"age"', "?"),
+        (PostgresDialect(), '"user"', '"name"', '"age"', "%s"),
+        (MySQLDialect(), "`user`", "`name`", "`age`", "%s"),
+    ],
+)
+def test_projection_compiler_selects_requested_fields_and_preserves_query(
+    dialect, table, name_column, age_column, placeholder
+):
+    compiler = (
+        QuerySet(User, dialect=dialect)
+        .filter(age__gte=18)
+        .order_by("-age")
+        .offset(1)
+        .limit(2)
+        ._compiler()
+    )
+
+    sql, params = compiler.compile_projection(("name", "age"))
+
+    assert sql == (
+        f"SELECT {table}.{name_column}, {table}.{age_column} FROM {table} "
+        f"WHERE {age_column} >= {placeholder} ORDER BY {age_column} DESC "
+        f"{dialect.limit_clause(2, 1)}"
+    )
+    assert params == [18]
+
+
+def test_projection_compiler_rejects_unknown_field():
+    compiler = QuerySet(User)._compiler()
+
+    with pytest.raises(KeyError, match="Unknown field 'missing'"):
+        compiler.compile_projection(("missing",))
+
+
 def test_query_errors_are_publicly_exported():
     from blazeorm import DoesNotExist as RootDoesNotExist
     from blazeorm import MultipleObjectsReturned as RootMultipleObjectsReturned
