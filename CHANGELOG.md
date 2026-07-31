@@ -4,6 +4,7 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 - No changes yet.
+- Replaced ad-hoc development virtual environments and pip-based CI/release setup with a locked `uv` workflow.
 
 ## [0.3.0] - 2026-07-31
 - Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.

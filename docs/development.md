@@ -3,30 +3,28 @@
 ## Setup
 
 ```bash
-python -m venv .venv
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+uv sync --frozen
 ```
 
-Use the virtual environment's Python for every command. Optional integration drivers are installed with `.[postgres]` and `.[mysql]` or explicitly in CI.
+`uv` owns the project environment and installs the locked default development group. Do not manually create or maintain a repository virtual environment. Sync optional database drivers with `uv sync --frozen --group integration`.
 
 ## Quality Gates
 
 ```bash
-python -m ruff check .
-python -m black --check .
-python -m isort --check-only .
-python -m mypy src
-python -m pytest
-python -m build
-python -m twine check dist/*
+uv run --frozen ruff check .
+uv run --frozen black --check .
+uv run --frozen isort --check-only .
+uv run --frozen mypy src
+uv run --frozen python -m pytest
+uv run --frozen python -m build
+uv run --frozen twine check dist/*
 ```
 
 For local database integrations:
 
 ```bash
 docker compose -f docker-compose.integration.yml up -d
-python -m pytest tests/integration
+uv run --frozen python -m pytest tests/integration
 docker compose -f docker-compose.integration.yml down
 ```
 
@@ -46,6 +44,7 @@ A major change modifies a public API, documented behavior, model/schema semantic
 ## Coding Rules
 
 - Target Python 3.9+ and keep code typed. Do not add broad type ignores or relax quality configuration.
+- Keep `uv.lock` synchronized with `pyproject.toml`; CI and release jobs always run frozen.
 - Prefer small, focused units and explicit errors over silent fallbacks.
 - Keep QuerySets immutable-style by cloning state rather than mutating an existing query.
 - Use adapters/dialects for SQL and validate all supported backends when shared compilation changes.

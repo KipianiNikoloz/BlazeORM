@@ -39,4 +39,4 @@ Code and tests describe current behavior. OpenSpec artifacts describe an approve
 
 ## Completion Gate
 
-Run the commands in `docs/development.md`. Report skipped integration tests explicitly. Do not commit caches, build outputs, virtual environments, secrets, or Superpowers planning files.
+Run the frozen `uv` commands in `docs/development.md`. Keep `uv.lock` synchronized, report skipped integration tests explicitly, and do not commit caches, build outputs, virtual environments, secrets, or Superpowers planning files.

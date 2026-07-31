@@ -120,6 +120,8 @@ engine.apply("blog", "0001", ops)
 - With optional extras: `pip install .[postgres]` or `pip install .[mysql]` to pull driver dependencies.
 - From PyPI: `pip install blazeorm` (published via tagged releases).
 
+Contributors use `uv sync --frozen` and run project commands through `uv run --frozen`; dependency resolution is committed in `uv.lock`.
+
 ## CI & Quality
 - GitHub Actions run pytest plus ruff/black/isort/mypy checks.
 - Mypy uses incremental strictness flags without ignoring optional database-driver imports.
@@ -127,9 +129,9 @@ engine.apply("blog", "0001", ops)
 - Build artifacts are validated in CI; publishing occurs on tag pushes matching `v*`.
 
 ## Testing
-- Run the suite: `python -m pytest`
+- Run the suite: `uv run --frozen python -m pytest`
 - Tests cover adapters, dialects, core models/relations, query compilation/execution, persistence, schema, security, caching, hooks, performance, and examples.
-- Local integration tests: start containers with `docker compose -f docker-compose.integration.yml up -d`, set `BLAZE_POSTGRES_DSN=postgresql://blaze:blaze@localhost:5439/blazeorm` and `BLAZE_MYSQL_DSN=mysql://blaze:blaze@localhost:3307/blazeorm`, then run `python -m pytest tests/integration`.
+- Local integration tests: start containers with `docker compose -f docker-compose.integration.yml up -d`, set `BLAZE_POSTGRES_DSN=postgresql://blaze:blaze@localhost:5439/blazeorm` and `BLAZE_MYSQL_DSN=mysql://blaze:blaze@localhost:3307/blazeorm`, then run `uv run --frozen python -m pytest tests/integration`.
 
 ## Further Reading
 - `docs/architecture.md` for boundaries and invariants.
