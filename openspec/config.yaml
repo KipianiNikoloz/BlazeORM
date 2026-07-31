@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  BlazeORM is a synchronous Python 3.9+ ORM supporting SQLite, PostgreSQL, and MySQL.
+  Preserve the model -> query -> session -> adapter -> dialect architecture.
+  All SQL must use dialect quoting/placeholders and execute through adapters.
+  Migrations stay explicit and destructive operations require force=True.
+  Preserve DSN/parameter redaction, validation, identity-map reuse, and transaction semantics.
+  Public changes require tests, README/reference updates, and an Unreleased changelog entry.
+  Use conventional commits and do not create docs/superpowers planning artifacts.
+
+rules:
+  proposal:
+    - State user value, compatibility impact, and explicit non-goals.
+    - Keep the change independently testable and narrowly scoped.
+  design:
+    - Cover all three dialects and name affected architectural invariants.
+    - Define errors and edge-case behavior explicitly.
+  specs:
+    - Use observable requirements with concrete scenarios.
+  tasks:
+    - Order work test-first and include focused tests, full verification, docs, and changelog updates.
+    - Keep tasks small enough for focused commits.
