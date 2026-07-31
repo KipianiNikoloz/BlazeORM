@@ -5,8 +5,8 @@
 
 ## 2. Late and Nested State
 
-- [ ] 2.1 Add failing tests for post-begin registration, nested boundaries, and cache reconstruction.
-- [ ] 2.2 Implement lazy participant capture and cache/identity rebuilding for all snapshot levels.
+- [x] 2.1 Add failing tests for post-begin registration, nested boundaries, and cache reconstruction.
+- [x] 2.2 Implement lazy participant capture and cache/identity rebuilding for all snapshot levels.
 
 ## 3. Completion
 

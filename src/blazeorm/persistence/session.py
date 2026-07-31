@@ -144,18 +144,21 @@ class Session:
     # ------------------------------------------------------------------ #
     def add(self, instance: Model) -> None:
         with self._lock:
+            self._capture_transaction_participant(instance)
             self.unit_of_work.register_new(instance)
             if self.autocommit:
                 self.commit()
 
     def delete(self, instance: Model) -> None:
         with self._lock:
+            self._capture_transaction_participant(instance)
             self.unit_of_work.register_deleted(instance)
             if self.autocommit:
                 self.commit()
 
     def mark_dirty(self, instance: Model) -> None:
         with self._lock:
+            self._capture_transaction_participant(instance)
             self.unit_of_work.register_dirty(instance)
             if self.autocommit:
                 self.commit()
@@ -180,6 +183,7 @@ class Session:
         try:
             with self.transaction():
                 for instance in created:
+                    self._capture_transaction_participant(instance)
                     self._persist_new(instance)
         except Exception:
             for instance, field_values, initial_state, related_cache, persisted in snapshots:
@@ -450,8 +454,11 @@ class Session:
         self.unit_of_work.dirty = set(snapshot.dirty)
         self.unit_of_work.deleted = set(snapshot.deleted)
         self.identity_map.clear()
+        self.cache.clear()
         for instance in snapshot.identity_instances:
             self.identity_map.add(instance)
+            if instance._persisted:
+                self._cache_instance(instance)
 
     @staticmethod
     def _model_state(instance: Model) -> _ModelState:
@@ -461,6 +468,11 @@ class Session:
             related_cache=dict(instance._related_cache),
             persisted=instance._persisted,
         )
+
+    def _capture_transaction_participant(self, instance: Model) -> None:
+        for snapshot in self._uow_snapshots:
+            if instance not in snapshot.model_states:
+                snapshot.model_states[instance] = self._model_state(instance)
 
     # ------------------------------------------------------------------ #
     # Persistence helpers
