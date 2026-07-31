@@ -68,6 +68,12 @@ engine.apply("blog", "0001", ops)
 - `prefetch_related("categories", "author__articles")` for bulk loading m2m and nested relations.
 - Empty relations return empty lists; identity map/caches are reused during iteration.
 
+### Query Lookups
+- Comparisons: `exact`, `iexact`, `gt`, `gte`, `lt`, and `lte`.
+- Text matching: `contains`, `icontains`, `startswith`, and `endswith`.
+- Collections and nulls: `in` and `isnull`.
+- Case-insensitive lookups compile portably across SQLite, PostgreSQL, and MySQL.
+
 ### Transactions, Hooks, and M2M Helpers
 - Use `with session:` or `session.transaction()` for transactional scopes.
 - Hooks: `before/after_validate`, `before/after_save`, `before/after_delete`, `after_commit` fired by `Session`.

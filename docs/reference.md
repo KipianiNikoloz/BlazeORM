@@ -14,7 +14,7 @@
 
 `Q` objects combine filters with `&`, `|`, and `~`. QuerySets support `filter`, `exclude`, `where`, `order_by`, `limit`, `offset`, `select_related`, `prefetch_related`, SQL compilation, and session-bound iteration.
 
-Supported scalar lookups are `exact`, `iexact`, `gt`, `gte`, `lt`, `lte`, and `contains`. SQL and parameters are returned separately and placeholders come from the active dialect.
+Supported scalar lookups are `exact`, `iexact`, `gt`, `gte`, `lt`, `lte`, `contains`, `icontains`, `startswith`, `endswith`, `in`, and `isnull`. Empty `in` collections match nothing; invalid collection, boolean, and text values raise explicit errors. Case-insensitive matching uses `LOWER` for consistent behavior across supported databases. SQL and parameters are returned separately and placeholders come from the active dialect.
 
 ## Sessions and Persistence
 
