@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from datetime import datetime, timezone
 from threading import RLock
 from typing import Any, Iterable, Optional, Type
 
@@ -193,6 +194,51 @@ class Session:
             data = self._row_to_dict(cursor, row)
             return self._materialize(model, data)
 
+    def refresh(self, instance: Model) -> Model:
+        """Reload all scalar fields into an existing persisted instance."""
+
+        with self._lock:
+            pk_field = instance._meta.primary_key
+            if not instance._persisted or instance in self.unit_of_work.deleted or pk_field is None:
+                raise ValueError("Session.refresh requires a persisted model instance.")
+            pk_name = pk_field.require_name()
+            pk_value = getattr(instance, pk_name, None)
+            if pk_value is None:
+                raise ValueError("Session.refresh requires a non-null primary key.")
+
+            select_list = ", ".join(
+                self.dialect.quote_identifier(field.column_name())
+                for field in instance._meta.get_fields()
+            )
+            table = self.dialect.format_table(instance._meta.table_name)
+            pk_column = self.dialect.quote_identifier(pk_field.column_name())
+            placeholder = self.dialect.parameter_placeholder()
+            cursor = self.execute(
+                f"SELECT {select_list} FROM {table} " f"WHERE {pk_column} = {placeholder} LIMIT 1",
+                (pk_value,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                from ..query import DoesNotExist
+
+                raise DoesNotExist(
+                    f"{instance.__class__.__name__} with primary key {pk_value!r} does not exist."
+                )
+
+            data = self._row_to_dict(cursor, row)
+            refreshed_values = {
+                field.require_name(): field.to_python(data[field.column_name()])
+                for field in instance._meta.get_fields()
+            }
+            instance._field_values = refreshed_values
+            instance._initial_state = dict(refreshed_values)
+            instance._related_cache.clear()
+            instance._persisted = True
+            self.unit_of_work.dirty.discard(instance)
+            self.identity_map.add(instance)
+            self._cache_instance(instance)
+            return instance
+
     def execute(self, sql: str, params: Iterable[Any] | None = None) -> Cursor:
         with self._lock:
             param_list = list(params or [])
@@ -319,6 +365,7 @@ class Session:
     # Persistence helpers
     # ------------------------------------------------------------------ #
     def _persist_new(self, instance: Model) -> None:
+        self._apply_managed_timestamps(instance, created=True)
         self.hooks.fire("before_validate", instance, session=self)
         instance.full_clean()
         self.hooks.fire("after_validate", instance, session=self)
@@ -353,6 +400,7 @@ class Session:
         self._cache_instance(instance)
 
     def _persist_dirty(self, instance: Model) -> None:
+        self._apply_managed_timestamps(instance, created=False)
         self.hooks.fire("before_validate", instance, session=self)
         instance.full_clean()
         self.hooks.fire("after_validate", instance, session=self)
@@ -486,9 +534,23 @@ class Session:
 
     @staticmethod
     def _normalize_db_value(field, value: Any) -> Any:
+        from ..core.fields import DateTimeField
         from ..core.relations import RelatedField
 
+        if isinstance(field, DateTimeField) and isinstance(value, datetime):
+            return value.isoformat()
         if isinstance(field, RelatedField) and value is not None:
             if hasattr(value, "pk"):
                 return value.pk
         return value
+
+    @staticmethod
+    def _apply_managed_timestamps(instance: Model, *, created: bool) -> None:
+        from ..core.fields import DateTimeField
+
+        timestamp = datetime.now(timezone.utc)
+        for field in instance._meta.get_fields():
+            if not isinstance(field, DateTimeField):
+                continue
+            if field.auto_now or (created and field.auto_now_add):
+                setattr(instance, field.require_name(), timestamp)
