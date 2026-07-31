@@ -6,6 +6,7 @@ All notable changes to this project will be documented here.
 - No changes yet.
 - Replaced ad-hoc development virtual environments and pip-based CI/release setup with a locked `uv` workflow.
 - Added efficient `values()` and `values_list()` field projections to QuerySet and QueryManager.
+- Added portable numeric aggregate terminals with correct ordered-slice semantics.
 
 ## [0.3.0] - 2026-07-31
 - Added functional `Model.save()` and `Model.delete()` methods with explicit or context-bound Session resolution.
