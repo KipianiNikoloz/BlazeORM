@@ -1,7 +1,7 @@
 ## 1. Metadata
 
-- [ ] 1.1 Add failing tests for metadata construction, exports, model collection, abstract inheritance, and configuration errors.
-- [ ] 1.2 Implement public constraint/index objects and ModelMeta collection/validation.
+- [x] 1.1 Add failing tests for metadata construction, exports, model collection, abstract inheritance, and configuration errors.
+- [x] 1.2 Implement public constraint/index objects and ModelMeta collection/validation.
 
 ## 2. Schema Generation
 

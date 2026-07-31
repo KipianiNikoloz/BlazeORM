@@ -10,6 +10,7 @@ from typing import Any, ClassVar, Dict, Iterable, Optional, Type, TypeVar, cast
 
 from ..query.queryset import QueryManager
 from ..utils import camel_to_snake
+from .constraints import Index, UniqueConstraint
 from .fields import AutoField, Field
 from .relations import ManyToManyField, RelatedField, relation_registry
 
@@ -32,6 +33,8 @@ class ModelOptions:
     primary_key: Optional[Field] = None
     many_to_many: list[ManyToManyField] = field(default_factory=list)
     m2m_through_tables: dict[str, str] = field(default_factory=dict)
+    constraints: tuple[UniqueConstraint, ...] = ()
+    indexes: tuple[Index, ...] = ()
 
     def add_field(self, field_obj: Field) -> None:
         name = field_obj.require_name()
@@ -86,13 +89,32 @@ class ModelMeta(type):
         table_name = camel_to_snake(name)
         schema = None
         abstract = False
+        inherited_constraints: list[UniqueConstraint] = []
+        inherited_indexes: list[Index] = []
 
         if meta:
             table_name = getattr(meta, "table", table_name)
             schema = getattr(meta, "schema", None)
             abstract = getattr(meta, "abstract", False)
 
-        cls._meta = ModelOptions(model=cls, table_name=table_name, schema=schema, abstract=abstract)
+        for base in bases:
+            base_options = getattr(base, "_meta", None)
+            if base_options is None or not base_options.abstract:
+                continue
+            inherited_constraints.extend(base_options.constraints)
+            inherited_indexes.extend(base_options.indexes)
+
+        declared_constraints = tuple(getattr(meta, "constraints", ())) if meta else ()
+        declared_indexes = tuple(getattr(meta, "indexes", ())) if meta else ()
+
+        cls._meta = ModelOptions(
+            model=cls,
+            table_name=table_name,
+            schema=schema,
+            abstract=abstract,
+            constraints=tuple(inherited_constraints) + declared_constraints,
+            indexes=tuple(inherited_indexes) + declared_indexes,
+        )
 
         combined_fields: "OrderedDict[str, Field]" = OrderedDict()
         declared_names = set(declared_fields)
@@ -139,12 +161,47 @@ class ModelMeta(type):
             cls._meta.add_field(auto_field)
             cls._meta.fields.move_to_end("id", last=False)
 
+        mcls._validate_schema_metadata(cls)
+
         if "objects" not in cls.__dict__:
             cls.objects = QueryManager(cls)
 
         relation_registry.register_model(cls)
 
         return cls
+
+    @staticmethod
+    def _validate_schema_metadata(model: type["Model"]) -> None:
+        for category, entries, expected_type in (
+            ("constraints", model._meta.constraints, UniqueConstraint),
+            ("indexes", model._meta.indexes, Index),
+        ):
+            definitions: set[tuple[str, ...]] = set()
+            names: set[str] = set()
+            for entry in entries:
+                if not isinstance(entry, expected_type):
+                    raise ModelConfigurationError(
+                        f"Model '{model.__name__}' {category} contain invalid metadata."
+                    )
+                fields = tuple(entry.fields)
+                if fields in definitions:
+                    raise ModelConfigurationError(
+                        f"Model '{model.__name__}' has a duplicate {category} definition."
+                    )
+                definitions.add(fields)
+                if entry.name is not None:
+                    if entry.name in names:
+                        raise ModelConfigurationError(
+                            f"Model '{model.__name__}' has a duplicate {category} name "
+                            f"'{entry.name}'."
+                        )
+                    names.add(entry.name)
+                for field_name in fields:
+                    if field_name not in model._meta.fields:
+                        raise ModelConfigurationError(
+                            f"Model '{model.__name__}' {category} reference unknown scalar "
+                            f"field '{field_name}'."
+                        )
 
 
 class Model(metaclass=ModelMeta):
