@@ -25,3 +25,4 @@ def test_migration_engine_applies_operations(tmp_path):
 
     applied = engine.applied_migrations()
     assert ("testapp", "0001_initial") in applied
+    adapter.close()

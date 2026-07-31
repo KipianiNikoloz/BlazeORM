@@ -90,6 +90,7 @@ def test_destructive_migration_operation_requires_force(tmp_path, caplog):
     operations[0].force = True
     engine.apply("app", "0002_drop_force", operations)
     assert any("Destructive migration detected" in record.message for record in caplog.records)
+    adapter.close()
 
 
 def test_redact_params_masks_sensitive_values():
