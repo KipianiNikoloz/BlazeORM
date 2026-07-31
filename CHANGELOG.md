@@ -3,6 +3,9 @@
 All notable changes to this project will be documented here.
 
 ## [Unreleased]
+- No changes yet.
+
+## [0.2.0] - 2026-07-31
 - Added cloned scalar and relationship field inheritance from abstract models, including conflict and primary-key rules.
 - Added `first`, `get`, `count`, and `exists` terminal operations to QuerySet and QueryManager.
 - Added public `QueryError`, `DoesNotExist`, and `MultipleObjectsReturned` exceptions.
