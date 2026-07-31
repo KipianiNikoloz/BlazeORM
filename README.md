@@ -95,7 +95,7 @@ engine.apply("blog", "0001", ops)
 
 ## CI & Quality
 - GitHub Actions run pytest plus ruff/black/isort/mypy checks.
-- Note: mypy is currently configured to ignore type errors pending a full typing pass.
+- Mypy uses incremental strictness flags without ignoring optional database-driver imports.
 - Integration tests run in a dedicated CI job using Postgres/MySQL service containers with predefined DSNs.
 - Build artifacts are validated in CI; publishing occurs on tag pushes matching `v*`.
 
@@ -105,5 +105,7 @@ engine.apply("blog", "0001", ops)
 - Local integration tests: start containers with `docker compose -f docker-compose.integration.yml up -d`, set `BLAZE_POSTGRES_DSN=postgresql://blaze:blaze@localhost:5439/blazeorm` and `BLAZE_MYSQL_DSN=mysql://blaze:blaze@localhost:3307/blazeorm`, then run `python -m pytest tests/integration`.
 
 ## Further Reading
-- `src/blazeorm/README.md` for package overview.
-- Module READMEs under each subpackage for focused details (core, query, persistence, adapters, schema, security, cache, hooks, utils, examples).
+- `docs/architecture.md` for boundaries and invariants.
+- `docs/reference.md` for subsystem behavior and public APIs.
+- `docs/development.md` and `AGENTS.md` for contributor and agent workflows.
+- `examples/README.md` for runnable demonstrations.
