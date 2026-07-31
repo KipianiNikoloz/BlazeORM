@@ -61,9 +61,7 @@ class SQLCompiler:
         )
         return self._compile_select(select_list, [])
 
-    def _compile_select(
-        self, select_list: str, joins: List[str]
-    ) -> Tuple[str, List[Any]]:
+    def _compile_select(self, select_list: str, joins: List[str]) -> Tuple[str, List[Any]]:
         sql_parts: List[str] = [f"SELECT {select_list}", "FROM", self._table_for_model(self.model)]
         sql_parts.extend(joins)
         params: List[Any] = []

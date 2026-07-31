@@ -214,13 +214,7 @@ def test_manager_terminal_methods_use_context_session(tmp_path):
 def test_values_returns_requested_fields_without_model_hydration(tmp_path):
     session = create_populated_user_session(tmp_path, "values.db")
 
-    rows = (
-        session.query(User)
-        .filter(age=20)
-        .order_by("name")
-        .limit(2)
-        .values("name", "age")
-    )
+    rows = session.query(User).filter(age=20).order_by("name").limit(2).values("name", "age")
 
     assert rows == [{"name": "Bob", "age": 20}, {"name": "Cara", "age": 20}]
     assert session.identity_map.values() == []
